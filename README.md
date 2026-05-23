@@ -164,3 +164,4 @@ Este serviço é um auxílio informativo e não substitui consultoria jurídica 
 ---
 
 © 2025 Multa.AI
+
