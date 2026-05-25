@@ -1238,6 +1238,103 @@ function HistoricoAtualizado({ user, setUser, setPdfModal, setDadosMulta, setRec
   );
 }
 
+// ── Sidebar FAQ ───────────────────────────────────────────────
+const FAQ_PROTOCOLO = [
+  {
+    cat: "🗂️ Como Protocolar",
+    itens: [
+      {
+        q: "Onde apresento o recurso?",
+        a: "Na JARI do órgão que emitiu o auto. CET → protocole na CET, DETRAN → no DETRAN, PRF → na PRF. Consulte o site do órgão para verificar se aceitam protocolo online."
+      },
+      {
+        q: "Qual é o prazo?",
+        a: "30 dias corridos da data de notificação da autuação (Art. 283 CTB). O prazo conta da notificação, não da infração. Após esse prazo o recurso não é aceito."
+      },
+      {
+        q: "Quais documentos levar?",
+        a: "Recurso impresso e assinado, auto de infração, cópia da CNH, RG, CPF, CRLV e comprovante de endereço. Com Revisão Jurídica, leve o documento assinado pelo advogado."
+      },
+      {
+        q: "Posso protocolar online?",
+        a: "Sim! A maioria dos órgãos aceita protocolo digital. DETRAN SP: detran.sp.gov.br · CET SP: cetsp.com.br · PRF: prf.gov.br · SEMOB: portal da prefeitura."
+      },
+      {
+        q: "O que é JARI e CETRAN?",
+        a: "JARI é a 1ª instância de julgamento de recursos de multas. Se negado, recorra ao CETRAN (2ª instância). Em alguns casos ainda é possível ir ao CONTRAN. Não desista no 1º recurso!"
+      },
+    ]
+  },
+  {
+    cat: "💡 Dicas de Trânsito",
+    itens: [
+      {
+        q: "Infrações mais comuns e como evitar?",
+        a: "Excesso de velocidade, uso de celular (7 pts, gravíssima), desrespeito ao semáforo, estacionamento irregular e não uso do cinto. Atenção a radares fixos e lombadas eletrônicas."
+      },
+      {
+        q: "Quantos pontos posso ter na CNH?",
+        a: "40 pontos em 12 meses sem infrações gravíssimas. Com infração gravíssima, o limite cai para 30 pontos. Motoristas profissionais têm limite de 40 pontos independente do tipo."
+      },
+      {
+        q: "O que fazer em uma blitz?",
+        a: "Mantenha a calma, apresente os documentos e assine o auto se solicitado — assinar não é concordar, apenas receber a notificação. Anote nome e matrícula do agente e fotografe o local."
+      },
+      {
+        q: "Como saber se vou suspender a CNH?",
+        a: "Consulte sua pontuação no portal do DETRAN do seu estado ou no app do SENATRAN. Se estiver próximo do limite, dirija com cautela e recorra de infrações dentro do prazo."
+      },
+      {
+        q: "Infração do proprietário vs. condutor?",
+        a: "Infrações de condutor (velocidade, sinal) levam pontos na CNH do motorista. Infrações do proprietário (estacionamento) — se o condutor não for identificado, o dono paga a multa sem pontos."
+      },
+    ]
+  },
+];
+
+function SidebarFAQItem({ q, a }) {
+  const [aberto, setAberto] = useState(false);
+  return (
+    <div style={{ borderBottom: `1px solid ${C.border}` }}>
+      <button onClick={() => setAberto(v => !v)}
+        style={{ width: "100%", padding: "9px 0", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: C.text, lineHeight: 1.4, flex: 1 }}>{q}</span>
+        <span style={{ fontSize: 14, color: C.green600, flexShrink: 0, transition: "transform 0.2s", transform: aberto ? "rotate(45deg)" : "rotate(0deg)", marginTop: 1 }}>+</span>
+      </button>
+      {aberto && (
+        <div style={{ paddingBottom: 10, fontSize: 11, color: C.textMuted, lineHeight: 1.7, animation: "fadeUp 0.2s ease both" }}>
+          {a}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SidebarFAQ() {
+  const [catAberta, setCatAberta] = useState(0);
+  return (
+    <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 13, overflow: "hidden" }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: C.green600, letterSpacing: "0.08em", padding: "13px 14px 10px", textTransform: "uppercase" }}>❓ FAQ</div>
+      {FAQ_PROTOCOLO.map((cat, ci) => (
+        <div key={ci}>
+          <button onClick={() => setCatAberta(catAberta === ci ? -1 : ci)}
+            style={{ width: "100%", padding: "9px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", background: catAberta === ci ? C.green50 : "transparent", border: "none", borderTop: `1px solid ${C.border}`, cursor: "pointer", fontFamily: "inherit" }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: C.green700 }}>{cat.cat}</span>
+            <span style={{ fontSize: 13, color: C.green600, transition: "transform 0.2s", transform: catAberta === ci ? "rotate(180deg)" : "rotate(0deg)" }}>▾</span>
+          </button>
+          {catAberta === ci && (
+            <div style={{ padding: "4px 14px 6px", background: C.offWhite }}>
+              {cat.itens.map((item, ii) => (
+                <SidebarFAQItem key={ii} q={item.q} a={item.a} />
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── App Logado ────────────────────────────────────────────────
 function AppLogado({ user, setUser, view, setView }) {
   const [step, setStep] = useState(1);
@@ -1772,6 +1869,10 @@ function AppLogado({ user, setUser, view, setView }) {
                 ))}
                 <button onClick={() => setView("planos")} style={{ width: "100%", padding: "9px", borderRadius: 8, border: `1px solid ${C.green200}`, background: C.green50, color: C.green700, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Ver planos →</button>
               </div>
+
+              {/* FAQ Sidebar */}
+              <SidebarFAQ />
+
               <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=Olá! Tenho dúvida sobre recurso de multa.`} target="_blank" rel="noopener noreferrer"
                 style={{ background: "#dcfce7", border: "1px solid #22c55e", borderRadius: 13, padding: "14px 17px", display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
                 <span style={{ fontSize: 22 }}>💬</span>
@@ -2053,3 +2154,4 @@ export default function Root() {
     </div>
   );
 }
+
