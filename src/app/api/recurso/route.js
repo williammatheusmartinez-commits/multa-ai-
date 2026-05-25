@@ -369,3 +369,4 @@ Responda APENAS com o texto do recurso, sem JSON, sem markdown, sem explicaçõe
     console.error("[MULTA-AI] Erro interno:", err);
     return Response.json({ error: "Erro interno: " + err.message }, { status: 500 });
   }
+}
