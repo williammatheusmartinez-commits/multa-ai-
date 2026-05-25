@@ -2007,7 +2007,16 @@ export default function Root() {
 
       {!isAdv && (
         <header style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: `0 ${isMobile ? 14 : 28}px`, height: 60, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100, boxShadow: `0 1px 10px ${C.glow}` }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }} onClick={() => { if (user) setView("home"); else window.scrollTo({ top: 0, behavior: "smooth" }); }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}
+            onClick={() => {
+              if (user) {
+                setView("documentos"); // volta para primeira aba do app logado
+              } else {
+                window.scrollTo({ top: 0, behavior: "smooth" }); // volta ao topo da landing
+              }
+            }}
+            title="Voltar ao início"
+          >
             <Logo size={32} />
             <div>
               <div style={{ fontWeight: 800, fontSize: isMobile ? 14 : 16, letterSpacing: "-0.04em" }}>Multa<span style={{ color: C.green500 }}>.AI</span></div>
