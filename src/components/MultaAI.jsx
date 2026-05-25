@@ -1178,7 +1178,14 @@ function HistoricoAtualizado({ user, setUser, setPdfModal, setDadosMulta, setRec
 function AppLogado({ user, setUser, view, setView }) {
   const [step, setStep] = useState(1);
   const [files, setFiles] = useState([]);       // arquivos do auto de infração
-  const [docFiles, setDocFiles] = useState([]); // documentos pessoais
+  const [docFiles, setDocFiles] = useState([]); // documentos pessoais da aba Documentos
+
+  // Quando muda para aba home, pré-carrega os docFiles nos files se ainda não houver arquivos
+  useEffect(() => {
+    if (view === "home" && files.length === 0 && docFiles.length > 0) {
+      setFiles(docFiles.slice(0, 5));
+    }
+  }, [view]);
   const [recurso, setRecurso] = useState("");
   const [dadosMulta, setDadosMulta] = useState(null);
   const [historicoPenalidade, setHistoricoPenalidade] = useState("");
@@ -1279,8 +1286,8 @@ function AppLogado({ user, setUser, view, setView }) {
       {/* Abas */}
       <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, display: "flex", overflowX: "auto" }}>
         {[
-          { id: "home", label: "📄 Gerar Recurso" },
           { id: "documentos", label: "📋 Documentos" },
+          { id: "home", label: "📄 Gerar Recurso" },
           { id: "planos", label: "⚖️ Planos" },
           ...(planoPagoAtual ? [{ id: "protocolo", label: "🗂️ Protocolar" }] : []),
           { id: "historico", label: "🕓 Histórico" },
@@ -1345,6 +1352,12 @@ function AppLogado({ user, setUser, view, setView }) {
                       <div style={{ fontSize: 13, color: C.green600, fontWeight: 600 }}>{files.length} arquivo{files.length > 1 ? "s" : ""} selecionado{files.length > 1 ? "s" : ""} · Clique para adicionar mais</div>
                     )}
                   </div>
+                  {files.length > 0 && docFiles.length > 0 && files.every((f, i) => docFiles[i] === f) && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: C.green50, border: `1px solid ${C.green100}`, borderRadius: 8, marginBottom: 10, fontSize: 12, color: C.green700 }}>
+                      <span>📎</span>
+                      <span><strong>Arquivos importados automaticamente</strong> da aba Documentos. Adicione ou remova se necessário.</span>
+                    </div>
+                  )}
                   {files.length > 0 && (
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
                       {files.map((f, i) => (
@@ -1783,7 +1796,7 @@ export default function Root() {
   const openAuth = (mode = "login") => { setAuthMode(mode); setAuthOpen(true); };
 
   const handleLogin = u => {
-    setUser(u); setAuthOpen(false); setView("home");
+    setUser(u); setAuthOpen(false); setView("documentos");
     try { localStorage.setItem(SESSION_KEY, JSON.stringify({ email: u.email, nome: u.nome, isAdv: u.isAdv || false })); } catch {}
   };
 
