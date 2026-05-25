@@ -56,17 +56,69 @@ A análise e julgamento dos recursos administrativos dependem exclusivamente do 
 
 O usuário declara estar ciente de que a utilização da plataforma não constitui garantia de êxito no procedimento administrativo.`;
 
-// ── DB em memória ─────────────────────────────────────────────
+// ── DB com localStorage (persiste entre sessões) ──────────────
+const DB_KEY = "multaai_users";
+const ADV_KEY = "advogado@multa.ai";
+const ADV_DEFAULT = { nome:"Dr. Ricardo Souza", senha:"adv123", historico:[], isAdv:true, perfil:{} };
+
 const DB = {
-  _store: {
-    "advogado@multa.ai": { nome:"Dr. Ricardo Souza", senha:"adv123", historico:[], isAdv:true, perfil:{} }
+  _cache: null, // cache em memória para evitar múltiplas releituras
+
+  _load() {
+    if (this._cache) return this._cache;
+    try {
+      const raw = typeof window !== "undefined" ? localStorage.getItem(DB_KEY) : null;
+      const stored = raw ? JSON.parse(raw) : {};
+      if (!stored[ADV_KEY]) stored[ADV_KEY] = { ...ADV_DEFAULT };
+      this._cache = stored;
+      return stored;
+    } catch {
+      this._cache = { [ADV_KEY]: { ...ADV_DEFAULT } };
+      return this._cache;
+    }
   },
-  get(e){ return this._store[e] || null; },
-  set(e, d){ this._store[e] = d; },
-  update(e, patch){ if(this._store[e]) this._store[e] = {...this._store[e], ...patch}; },
-  addHistorico(e, entry){ if(!this._store[e]) return; this._store[e].historico = [entry, ...(this._store[e].historico||[])]; },
-  updateHistorico(e, id, patch){ if(!this._store[e]) return; this._store[e].historico = this._store[e].historico.map(h => h.id===id ? {...h,...patch} : h); },
-  getAllCasos(){ const l=[]; Object.entries(this._store).forEach(([email,u])=>{ if(u.isAdv)return; (u.historico||[]).forEach(h=>{ if(h.planoPago) l.push({...h,clienteEmail:email,clienteNome:u.nome}); }); }); return l; },
+
+  _save(store) {
+    this._cache = store;
+    try { if (typeof window !== "undefined") localStorage.setItem(DB_KEY, JSON.stringify(store)); } catch {}
+  },
+
+  get(e) { return this._load()[e] || null; },
+
+  set(e, d) {
+    const store = this._load();
+    store[e] = d;
+    this._save(store);
+  },
+
+  update(e, patch) {
+    const store = this._load();
+    if (store[e]) { store[e] = {...store[e], ...patch}; this._save(store); }
+  },
+
+  addHistorico(e, entry) {
+    const store = this._load();
+    if (!store[e]) return;
+    store[e].historico = [entry, ...(store[e].historico || [])];
+    this._save(store);
+  },
+
+  updateHistorico(e, id, patch) {
+    const store = this._load();
+    if (!store[e]) return;
+    store[e].historico = store[e].historico.map(h => h.id === id ? {...h,...patch} : h);
+    this._save(store);
+  },
+
+  getAllCasos() {
+    const store = this._load();
+    const l = [];
+    Object.entries(store).forEach(([email, u]) => {
+      if (u.isAdv) return;
+      (u.historico || []).forEach(h => { if (h.planoPago) l.push({...h, clienteEmail:email, clienteNome:u.nome}); });
+    });
+    return l;
+  },
 };
 
 async function enviarFormspree(dados) {
@@ -244,7 +296,7 @@ function PerfilModal({ user, setUser, onClose }) {
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:0}}>
             <div style={{gridColumn:"1/-1"}}>{inp("Nome completo *","nome","João da Silva")}</div>
             {inp("CPF","cpf","000.000.000-00")}
-            {inp("Data de nascimento","dataNasc","","date")}
+            {inp("Data de nascimento","dataNasc","DD/MM/AAAA")}
             <div style={{gridColumn:"1/-1"}}>{inp("Endereço completo","endereco","Rua, nº, Bairro, Cidade - UF")}</div>
             {inp("Telefone / WhatsApp","telefone","(11) 99999-9999")}
             {inp("Número da CNH","cnh","00000000000")}
@@ -779,6 +831,34 @@ function AbaDocumentos({ setView }) {
 
   return (
     <div style={{maxWidth:860,margin:"0 auto",padding:isMobile?"20px 16px":"28px 24px",animation:"fadeUp 0.3s ease both"}}>
+
+      {/* Banner upload de documentos de qualificação */}
+      <div style={{background:C.white,border:`2px solid ${C.green200}`,borderRadius:14,padding:"16px 20px",marginBottom:20,display:"flex",alignItems:"flex-start",gap:14}}>
+        <span style={{fontSize:24,flexShrink:0}}>📎</span>
+        <div>
+          <div style={{fontWeight:700,fontSize:14,color:C.text,marginBottom:6}}>Envie seus documentos para agilizar a qualificação do recurso</div>
+          <div style={{fontSize:13,color:C.textMuted,lineHeight:1.7,marginBottom:10}}>
+            Ao contratar o plano de Revisão Jurídica, o advogado precisará dos seus documentos para qualificar o recurso. Separe com antecedência:
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:8}}>
+            {[
+              {icon:"🪪",label:"CNH frente e verso",desc:"Dentro da validade"},
+              {icon:"📋",label:"RG ou identidade com foto",desc:"CPF incluído ou separado"},
+              {icon:"🏠",label:"Comprovante de endereço",desc:"Últimos 90 dias — luz, água ou banco"},
+              {icon:"🚗",label:"CRLV do veículo",desc:"Documento de licenciamento atual"},
+            ].map(({icon,label,desc}) => (
+              <div key={label} style={{display:"flex",alignItems:"center",gap:10,background:C.green50,border:`1px solid ${C.green100}`,borderRadius:9,padding:"10px 12px"}}>
+                <span style={{fontSize:20,flexShrink:0}}>{icon}</span>
+                <div>
+                  <div style={{fontSize:12,fontWeight:700,color:C.text}}>{label}</div>
+                  <div style={{fontSize:11,color:C.textMuted}}>{desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       <div style={{background:`linear-gradient(135deg,${C.green900},${C.green800})`,borderRadius:16,padding:isMobile?"20px":"28px 32px",marginBottom:24,position:"relative",overflow:"hidden"}}>
         {[300,200,120].map((r,i) => <div key={i} style={{position:"absolute",right:-60+i*20,top:"50%",transform:"translateY(-50%)",width:r,height:r,borderRadius:"50%",border:"1px solid rgba(255,255,255,0.05)",pointerEvents:"none"}}/>)}
         <div style={{position:"relative",zIndex:1}}>
@@ -1008,16 +1088,20 @@ function AppLogado({ user, setUser, view, setView }) {
         body: JSON.stringify({ fileB64, fileType: isPdf ? "pdf" : "image", mediaType, historicoPenalidade: penalidade })
       });
       if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || "Erro na API");
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || `Erro ${response.status}`);
       }
       const parsed = await response.json();
+      if (!parsed.dados || !parsed.recurso) throw new Error("Resposta incompleta da IA.");
       setDadosMulta(parsed.dados);
       setRecurso(parsed.recurso);
       salvarHistorico(parsed.dados, parsed.recurso);
       setStep(4);
     } catch(e) {
-      setError("Não foi possível analisar. Verifique se a imagem está legível e tente novamente.");
+      const msg = e.message || "";
+      if (msg.includes("configurada")) setError("Chave de API não configurada. Verifique as variáveis de ambiente na Vercel.");
+      else if (msg.includes("502") || msg.includes("IA")) setError("Erro ao processar com a IA. Tente novamente em alguns segundos.");
+      else setError("Não foi possível analisar. Verifique se a imagem está legível e tente novamente.");
       setStep(2);
     }
   }, [files, salvarHistorico]);
@@ -1214,7 +1298,7 @@ function AppLogado({ user, setUser, view, setView }) {
                 <div style={{background:`linear-gradient(135deg,${C.green700},${C.green600})`,borderRadius:16,padding:"14px 20px",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
                   <div>
                     <div style={{color:"rgba(255,255,255,0.65)",fontSize:10,fontWeight:600,letterSpacing:"0.08em",marginBottom:2}}>RECURSO GERADO ✓</div>
-                    <div style={{color:"#fff",fontWeight:800,fontSize:15}}>Pronto! {podeBaixarPDF?"Faça o download do PDF.":"Contrate um plano para baixar."}</div>
+                    <div style={{color:"#fff",fontWeight:800,fontSize:15}}>Pronto! Revise e edite o texto abaixo.</div>
                   </div>
                   <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                     <button onClick={resetar} style={{padding:"6px 13px",borderRadius:7,border:"1px solid rgba(255,255,255,0.3)",background:"transparent",color:"rgba(255,255,255,0.8)",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>← Novo</button>
@@ -1330,8 +1414,20 @@ function AppLogado({ user, setUser, view, setView }) {
 }
 
 // ── Root ──────────────────────────────────────────────────────
+const SESSION_KEY = "multaai_session";
+
 export default function Root() {
-  const [user, setUser] = useState(null);
+  // Recupera sessão salva ao carregar a página
+  const [user, setUser] = useState(() => {
+    try {
+      const saved = typeof window !== "undefined" ? localStorage.getItem(SESSION_KEY) : null;
+      if (!saved) return null;
+      const parsed = JSON.parse(saved);
+      // Recarrega dados frescos do DB para ter histórico atualizado
+      const fresh = DB.get(parsed.email);
+      return fresh ? { ...parsed, historico: fresh.historico || [], perfil: fresh.perfil || {} } : null;
+    } catch { return null; }
+  });
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState("login");
   const [view, setView] = useState("home");
@@ -1339,8 +1435,32 @@ export default function Root() {
   const isMobile = useIsMobile();
 
   const openAuth = (mode="login") => { setAuthMode(mode); setAuthOpen(true); };
-  const handleLogin = u => { setUser(u); setAuthOpen(false); setView("home"); };
-  const handleLogout = () => { setUser(null); setView("home"); };
+
+  const handleLogin = u => {
+    setUser(u);
+    setAuthOpen(false);
+    setView("home");
+    // Salva sessão no localStorage
+    try { localStorage.setItem(SESSION_KEY, JSON.stringify({ email:u.email, nome:u.nome, isAdv:u.isAdv||false })); } catch {}
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    setView("home");
+    // Remove sessão salva
+    try { localStorage.removeItem(SESSION_KEY); } catch {}
+  };
+
+  // Sincroniza o user com o DB quando setUser é chamado
+  const setUserSync = (updater) => {
+    setUser(prev => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      // Atualiza sessão salva com nome mais recente
+      try { if (next) localStorage.setItem(SESSION_KEY, JSON.stringify({ email:next.email, nome:next.nome, isAdv:next.isAdv||false })); } catch {}
+      return next;
+    });
+  };
+
   const isAdv = user?.isAdv === true;
 
   return (
@@ -1356,7 +1476,7 @@ export default function Root() {
       `}</style>
 
       {authOpen && <AuthDrawer onClose={() => setAuthOpen(false)} onLogin={handleLogin} initialMode={authMode}/>}
-      {showPerfil && user && <PerfilModal user={user} setUser={setUser} onClose={() => setShowPerfil(false)}/>}
+      {showPerfil && user && <PerfilModal user={user} setUser={setUserSync} onClose={() => setShowPerfil(false)}/>}
 
       {/* Header */}
       {!isAdv && (
@@ -1406,7 +1526,7 @@ export default function Root() {
       {isAdv ? (
         <PainelAdvogado onLogout={handleLogout}/>
       ) : user ? (
-        <AppLogado user={user} setUser={setUser} view={view} setView={setView}/>
+        <AppLogado user={user} setUser={setUserSync} view={view} setView={setView}/>
       ) : (
         <LandingPage onOpenAuth={openAuth}/>
       )}
