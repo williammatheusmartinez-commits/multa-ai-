@@ -37,6 +37,12 @@ const PLANOS = [
 ];
 const PLANOS_MAP = Object.fromEntries(PLANOS.map(p => [p.id, p]));
 
+// Plano de upgrade (complemento) — apenas para clientes que já contrataram IA Essencial
+const UPGRADE_JURIDICO = {
+  id: "juridico_upgrade", icon: "⚖️", titulo: "Upgrade — Revisão Jurídica", preco: "R$ 129,00", precoNum: 129.00,
+  confirmacao: "Upgrade confirmado! O advogado revisará e retornará em até 24h úteis com o documento assinado.",
+};
+
 // ── Disclaimer ────────────────────────────────────────────────
 const DISCLAIMER = `DISCLAIMER — OBRIGAÇÃO DE MEIO
 
@@ -324,7 +330,7 @@ function DisclaimerModal({ onAceitar, onRecusar }) {
 
 // ── Pagamento Modal — PIX via Mercado Pago ────────────────────
 function PagamentoModal({ plano, onClose, onSuccess, dadosCliente = {}, dadosMulta = {}, historico_penalidade = "" }) {
-  const info = PLANOS_MAP[plano] || { titulo: plano, preco: "", precoNum: 0 };
+  const info = PLANOS_MAP[plano] || (plano === "juridico_upgrade" ? UPGRADE_JURIDICO : { titulo: plano, preco: "", precoNum: 0 });
   const [fase, setFase] = useState("gerando");
   const [pixData, setPixData] = useState(null);
   const [copiado, setCopiado] = useState(false);
@@ -1202,12 +1208,14 @@ function AppLogado({ user, setUser, view, setView }) {
   }, [user.email, setUser]);
 
   const aoPlanoContratado = useCallback((planoId) => {
-    setPlanoPagoAtual(planoId);
+    // Upgrade conta como plano jurídico no histórico
+    const planoFinal = planoId === "juridico_upgrade" ? "juridico" : planoId;
+    setPlanoPagoAtual(planoFinal);
     setShowPagamento(null);
     const hid = historicoIdRef.current;
     if (hid) {
-      DB.updateHistoricoAsync(user.email, hid, { planoPago: planoId });
-      setUser(u => ({ ...u, historico: u.historico.map(h => h.id === hid ? { ...h, planoPago: planoId } : h) }));
+      DB.updateHistoricoAsync(user.email, hid, { planoPago: planoFinal });
+      setUser(u => ({ ...u, historico: u.historico.map(h => h.id === hid ? { ...h, planoPago: planoFinal } : h) }));
     }
   }, [user.email, setUser]);
 
@@ -1503,6 +1511,40 @@ function AppLogado({ user, setUser, view, setView }) {
                       </div>
                       <button onClick={() => setView("protocolo")} style={{ padding: "11px 22px", borderRadius: 10, border: "none", background: C.green400, color: C.green900, fontSize: 13, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>Ver passo a passo →</button>
                     </div>
+
+                    {/* Upgrade para Revisão Jurídica — só aparece se contratou IA Essencial */}
+                    {planoPagoAtual === "essencial" && (
+                      <div style={{ background: "linear-gradient(135deg,#fffbeb,#fef9ec)", border: "2px solid #fcd34d", borderRadius: 13, padding: "18px 20px", marginBottom: 14 }}>
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: 14, flexWrap: "wrap" }}>
+                          <div style={{ flex: 1, minWidth: 200 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                              <span style={{ fontSize: 20 }}>⚖️</span>
+                              <div style={{ fontWeight: 800, fontSize: 14, color: "#92400e" }}>Quer mais segurança? Faça upgrade!</div>
+                            </div>
+                            <p style={{ fontSize: 13, color: "#b45309", lineHeight: 1.7, marginBottom: 10 }}>
+                              Adicione a <strong>Revisão Jurídica</strong> ao seu recurso — um advogado especialista revisa, corrige e assina digitalmente com número OAB, aumentando suas chances de êxito perante a JARI.
+                            </p>
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                              {["✓ Revisão técnica por advogado", "✓ Assinatura digital OAB", "✓ Retorno em até 24h úteis"].map(item => (
+                                <span key={item} style={{ fontSize: 11, color: "#92400e", background: "#fef3c7", borderRadius: 20, padding: "3px 10px", fontWeight: 600 }}>{item}</span>
+                              ))}
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                            <div style={{ textAlign: "center" }}>
+                              <div style={{ fontSize: 11, color: "#b45309", fontWeight: 600, textDecoration: "line-through", opacity: 0.7 }}>R$ 199,00</div>
+                              <div style={{ fontSize: 22, fontWeight: 800, color: "#92400e" }}>R$ 129,00</div>
+                              <div style={{ fontSize: 10, color: "#b45309", fontWeight: 600 }}>complemento</div>
+                            </div>
+                            <button onClick={() => setShowPagamento("juridico_upgrade")}
+                              style={{ padding: "11px 20px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#b45309,#d97706)", color: "#fff", fontSize: 13, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", boxShadow: "0 4px 14px rgba(180,83,9,0.3)" }}>
+                              Fazer upgrade →
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     <div style={{ padding: "9px 13px", background: C.green50, border: `1px solid ${C.green100}`, borderRadius: 9, fontSize: 11, color: C.textMuted, lineHeight: 1.6 }}>
                       ⚠️ <strong style={{ color: C.textMid }}>Aviso legal:</strong> Obrigação de meio, não de resultado. Verifique os prazos junto ao órgão autuador.
                     </div>
@@ -1552,6 +1594,25 @@ function AppLogado({ user, setUser, view, setView }) {
         </div>
       )}
     </>
+  );
+}
+
+// ── FAQ Item ──────────────────────────────────────────────────
+function FAQItem({ pergunta, resposta }) {
+  const [aberto, setAberto] = useState(false);
+  return (
+    <div style={{ borderBottom: `1px solid ${C.border}`, marginBottom: 0 }}>
+      <button onClick={() => setAberto(a => !a)}
+        style={{ width: "100%", padding: "20px 0", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+        <span style={{ fontWeight: 700, fontSize: 15, color: C.text, lineHeight: 1.4 }}>{pergunta}</span>
+        <span style={{ fontSize: 20, color: C.green600, flexShrink: 0, transition: "transform 0.25s", transform: aberto ? "rotate(45deg)" : "rotate(0deg)" }}>+</span>
+      </button>
+      {aberto && (
+        <div style={{ paddingBottom: 20, fontSize: 14, color: C.textMuted, lineHeight: 1.85, animation: "fadeUp 0.2s ease both" }}>
+          {resposta}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1657,6 +1718,38 @@ function LandingPage({ onOpenAuth }) {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section style={{ background: C.white, padding: isMobile ? "48px 20px" : "68px 40px", borderTop: `1px solid ${C.border}` }}>
+        <div style={{ maxWidth: 780, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 44 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.green600, letterSpacing: "0.1em", marginBottom: 8, textTransform: "uppercase" }}>Dúvidas frequentes</div>
+            <h2 style={{ fontSize: isMobile ? 24 : 32, fontWeight: 800, letterSpacing: "-0.03em" }}>FAQ</h2>
+          </div>
+          {[
+            {
+              q: "Por que recorrer da minha multa ou penalidade?",
+              a: "Porque todo cidadão tem direito constitucional à ampla defesa e ao contraditório. Multas de trânsito frequentemente contêm vícios formais — dados incompletos, erros de notificação, equipamentos sem calibração — que tornam a autuação nula. Além disso, recorrer suspende temporariamente a exigibilidade da multa e impede a inscrição dos pontos na CNH até o julgamento. Com um recurso bem fundamentado, você pode cancelar a multa, recuperar os pontos e evitar o aumento no seguro."
+            },
+            {
+              q: "Quais são as maiores causas de anulação de multas?",
+              a: "As causas mais comuns são: ausência de dados obrigatórios no auto de infração (Art. 280 do CTB), notificação fora do prazo legal de 30 dias (Art. 282 §4º), equipamento de medição sem certificado de calibração válido do INMETRO, sinalização ausente ou deficiente no local da infração, identificação incorreta do veículo ou do condutor, e falha na identificação do agente autuador. Qualquer um desses vícios pode ser suficiente para anular a autuação."
+            },
+            {
+              q: "Qual o benefício de ter um recurso assinado por advogado?",
+              a: "Um recurso assinado por advogado especialista em direito de trânsito demonstra seriedade técnica perante a JARI e o CETRAN, aumenta as chances de deferimento e garante que todos os argumentos jurídicos pertinentes sejam utilizados. Além disso, o advogado pode identificar vícios processuais que passariam despercebidos em um recurso elaborado sem assistência jurídica, e poderá conduzir o recurso até a segunda instância (CETRAN) se necessário."
+            },
+            {
+              q: "É certo que meu recurso será procedente?",
+              a: "Não. A Multa.AI atua com obrigação de meio, não de resultado. Elaboramos o recurso mais completo e tecnicamente fundamentado possível, mas o julgamento depende exclusivamente da autoridade administrativa competente (JARI ou CETRAN), que avalia cada caso conforme seu entendimento e a legislação aplicável. O que garantimos é um recurso de qualidade, com todos os argumentos jurídicos pertinentes ao seu caso."
+            },
+            {
+              q: "A plataforma faz o protocolo do recurso nos sistemas governamentais ou eu preciso protocolar?",
+              a: "No plano IA Essencial, o recurso é gerado e entregue para você em PDF — o protocolo é de sua responsabilidade, presencialmente ou pelo portal do órgão autuador. No plano Revisão Jurídica, o advogado revisa e assina o documento, mas o protocolo também fica a cargo do cliente. Disponibilizamos um guia passo a passo completo ensinando como protocolar em cada órgão (DETRAN, CET, PRF e outros), disponível após a contratação."
+            },
+          ].map(({ q, a }, i) => <FAQItem key={i} pergunta={q} resposta={a} />)}
         </div>
       </section>
 
