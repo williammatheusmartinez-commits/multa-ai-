@@ -3,7 +3,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 
 // ── Configurações ─────────────────────────────────────────────
 const FORMSPREE_ID = "xaqkjrwv";
-const WHATSAPP_NUMBER = "5511999999999"; // Substitua pelo número real
+const WHATSAPP_NUMBER = "13153640044"; // +1 315-364-0044
 
 // ── Cores ─────────────────────────────────────────────────────
 const C = {
@@ -635,9 +635,6 @@ function AuthDrawer({ onClose, onLogin, initialMode = "login" }) {
                 {loading ? "Aguarde..." : "Entrar →"}
               </button>
               <button onClick={() => setEsqueci(true)} style={{ width: "100%", padding: "10px", borderRadius: 9, border: "none", background: "transparent", color: C.green600, fontSize: 13, cursor: "pointer", fontFamily: "inherit", marginTop: 8, textDecoration: "underline" }}>Esqueci minha senha</button>
-              <div style={{ marginTop: 14, padding: "11px 13px", background: C.green50, borderRadius: 9, border: `1px solid ${C.green100}`, fontSize: 12, color: C.textMuted, lineHeight: 1.7 }}>
-                <strong style={{ color: C.textMid }}>Acesso advogado:</strong><br /><code>advogado@multa.ai</code> / <code>adv123</code>
-              </div>
             </>
           ) : step === 1 ? (
             <>
