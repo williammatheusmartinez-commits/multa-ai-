@@ -1281,8 +1281,9 @@ function AppLogado({ user, setUser, view, setView }) {
       else if (msg.includes("502") || msg.includes("IA")) setError("Erro ao processar com a IA. Tente novamente.");
       else setError("Não foi possível analisar. Verifique se a imagem está legível e tente novamente.");
       setStep(2);
+      setView("home"); // garante que volta para a aba correta
     }
-  }, [files, user.perfil, user.veiculos, salvarHistorico]);
+  }, [files, user.perfil, user.veiculos, salvarHistorico, setView]);
 
   const clicarGerar = () => { if (files.length === 0) return; setShowDisclaimer(true); };
   const aoAceitarDisclaimer = () => { setShowDisclaimer(false); executarGeracao(); };
