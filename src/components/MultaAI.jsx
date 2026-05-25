@@ -434,11 +434,43 @@ function PagamentoModal({ plano, onClose, onSuccess, dadosCliente = {}, dadosMul
             </div>
           )}
           {fase === "confirmado" && (
-            <div style={{ textAlign: "center", padding: "16px 0" }}>
-              <div style={{ width: 64, height: 64, borderRadius: "50%", background: C.green50, border: `2px solid ${C.green400}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, margin: "0 auto 16px", boxShadow: `0 0 0 12px ${C.glow}` }}>✓</div>
-              <div style={{ fontWeight: 800, fontSize: 18, color: C.text, marginBottom: 8 }}>Pagamento confirmado!</div>
-              <div style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.7 }}>{info.confirmacao}</div>
-            </div>
+            plano === "juridico_upgrade" ? (
+              /* Tela especial para upgrade — orienta o cliente a aguardar */
+              <div style={{ textAlign: "center", padding: "8px 0" }}>
+                <div style={{ width: 64, height: 64, borderRadius: "50%", background: "#fffbeb", border: "2px solid #fcd34d", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, margin: "0 auto 16px", boxShadow: "0 0 0 12px rgba(251,191,36,0.15)" }}>⚖️</div>
+                <div style={{ fontWeight: 800, fontSize: 18, color: C.text, marginBottom: 10 }}>Upgrade contratado!</div>
+                <div style={{ background: C.green50, border: `1px solid ${C.green100}`, borderRadius: 10, padding: "14px 16px", marginBottom: 14, textAlign: "left" }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: C.green700, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                    <span>📋</span> O que acontece agora:
+                  </div>
+                  {[
+                    { icon: "1️⃣", texto: "O advogado recebeu seu recurso e iniciará a revisão técnica" },
+                    { icon: "2️⃣", texto: "Em até 24 horas úteis, o documento será revisado e assinado digitalmente com número OAB" },
+                    { icon: "3️⃣", texto: "Você receberá um e-mail quando a minuta estiver pronta" },
+                    { icon: "4️⃣", texto: "Acesse a aba Histórico para baixar o recurso com assinatura do(a) advogado(a)" },
+                  ].map(({ icon, texto }, i) => (
+                    <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 8 }}>
+                      <span style={{ fontSize: 16, flexShrink: 0 }}>{icon}</span>
+                      <span style={{ fontSize: 13, color: C.textMid, lineHeight: 1.6 }}>{texto}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 9, padding: "10px 14px", marginBottom: 14, fontSize: 12, color: "#92400e", lineHeight: 1.6 }}>
+                  ⏱ <strong>Prazo de entrega: até 24 horas úteis</strong><br />
+                  Fique de olho no seu e-mail e na aba Histórico.
+                </div>
+                <p style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.6 }}>
+                  Caso tenha dúvidas, entre em contato pelo WhatsApp.
+                </p>
+              </div>
+            ) : (
+              /* Tela padrão para IA Essencial e Revisão Jurídica direto */
+              <div style={{ textAlign: "center", padding: "16px 0" }}>
+                <div style={{ width: 64, height: 64, borderRadius: "50%", background: C.green50, border: `2px solid ${C.green400}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, margin: "0 auto 16px", boxShadow: `0 0 0 12px ${C.glow}` }}>✓</div>
+                <div style={{ fontWeight: 800, fontSize: 18, color: C.text, marginBottom: 8 }}>Pagamento confirmado!</div>
+                <div style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.7 }}>{info.confirmacao}</div>
+              </div>
+            )
           )}
           {fase === "erro" && (
             <div style={{ textAlign: "center", padding: "16px 0" }}>
@@ -1668,6 +1700,36 @@ function AppLogado({ user, setUser, view, setView }) {
                             </button>
                           </div>
                         </div>
+                      </div>
+                    )}
+
+                    {/* Banner pós-upgrade: orienta o cliente a aguardar */}
+                    {planoPagoAtual === "juridico" && (
+                      <div style={{ background: "linear-gradient(135deg,#f0fdf4,#dcfce7)", border: "2px solid #4ade80", borderRadius: 13, padding: "20px 22px", marginBottom: 14 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                          <div style={{ width: 44, height: 44, borderRadius: "50%", background: C.green50, border: `2px solid ${C.green400}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>⚖️</div>
+                          <div>
+                            <div style={{ fontWeight: 800, fontSize: 15, color: C.green800, marginBottom: 2 }}>Revisão Jurídica contratada!</div>
+                            <div style={{ fontSize: 12, color: C.green700 }}>Seu recurso está em mãos especializadas.</div>
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
+                          {[
+                            { icon: "📨", texto: "O advogado(a) já recebeu seu recurso e iniciará a revisão técnica" },
+                            { icon: "✍️", texto: "O documento será revisado e assinado digitalmente com número OAB" },
+                            { icon: "📧", texto: "Você receberá um e-mail quando a minuta estiver pronta" },
+                            { icon: "⏱️", texto: "Prazo de entrega: até 24 horas úteis" },
+                          ].map(({ icon, texto }, i) => (
+                            <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                              <span style={{ fontSize: 16, flexShrink: 0 }}>{icon}</span>
+                              <span style={{ fontSize: 13, color: C.green800, lineHeight: 1.6 }}>{texto}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <button onClick={() => setView("historico")}
+                          style={{ width: "100%", padding: "12px", borderRadius: 10, border: "none", background: `linear-gradient(135deg,${C.green700},${C.green500})`, color: "#fff", fontSize: 13, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                          <span>🕓</span> Acompanhar no Histórico →
+                        </button>
                       </div>
                     )}
 
