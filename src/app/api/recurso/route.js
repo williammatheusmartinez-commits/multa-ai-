@@ -1,26 +1,26 @@
-/**
- * API Route: /api/recurso
- * Recebe o arquivo (base64) e chama a Anthropic com segurança.
- * A chave ANTHROPIC_API_KEY fica apenas no servidor — nunca exposta ao browser.
- */
-
 export const runtime = "nodejs";
-export const maxDuration = 60; // segundos — necessário para análise de PDF/imagem
+export const maxDuration = 60;
 
 export async function POST(request) {
   try {
-    const { fileB64, fileType } = await request.json();
+    const { fileB64, fileType, mediaType, historicoPenalidade } = await request.json();
 
     if (!fileB64 || !fileType) {
-      return Response.json({ error: "Arquivo obrigatório." }, { status: 400 });
+      return Response.json({ error: "Arquivo obrigatorio." }, { status: 400 });
     }
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
-      return Response.json({ error: "Chave de API não configurada." }, { status: 500 });
+      return Response.json({ error: "Chave de API nao configurada no servidor." }, { status: 500 });
     }
 
-    const mediaType = fileType === "pdf" ? "application/pdf" : "image/jpeg";
+    const finalMediaType = fileType === "pdf"
+      ? "application/pdf"
+      : (mediaType && mediaType.startsWith("image/") ? mediaType : "image/jpeg");
+
+    const historicoTexto = historicoPenalidade
+      ? "\n\nHistorico relatado pelo cliente: " + historicoPenalidade
+      : "";
 
     const anthropicResponse = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -38,41 +38,11 @@ export async function POST(request) {
             content: [
               {
                 type: fileType === "pdf" ? "document" : "image",
-                source: { type: "base64", media_type: mediaType, data: fileB64 },
+                source: { type: "base64", media_type: finalMediaType, data: fileB64 },
               },
               {
                 type: "text",
-                text: `Você é um especialista em direito de trânsito brasileiro com vasta experiência em recursos administrativos.
-
-Analise este auto de infração e:
-1. Extraia todos os dados relevantes do documento
-2. Redija um recurso administrativo de 1ª instância (JARI) completo, formal e fundamentado
-
-O recurso deve:
-- Ser endereçado à Junta Administrativa de Recursos de Infrações (JARI)
-- Apresentar qualificação completa do recorrente (use dados do auto)
-- Arguir todos os vícios formais identificáveis (falta de dados obrigatórios, prazo de notificação, etc.)
-- Fundamentar no CTB (especialmente arts. 280, 281, 282, 283) e Resoluções CONTRAN pertinentes
-- Incluir pedido de cancelamento da autuação e devolução de pontos
-- Ter linguagem jurídica formal mas clara
-- Ter ao menos 400 palavras
-
-Responda APENAS em JSON válido, sem markdown, sem texto fora do JSON:
-{
-  "dados": {
-    "numero_auto": "...",
-    "data": "...",
-    "hora": "...",
-    "local": "...",
-    "codigo_infracao": "...",
-    "descricao_infracao": "...",
-    "artigo_ctb": "...",
-    "placa": "...",
-    "pontos": "...",
-    "valor_multa": "..."
-  },
-  "recurso": "texto completo do recurso com quebras de linha \\n"
-}`,
+                text: "Voce e um especialista em direito de transito brasileiro com vasta experiencia em recursos administrativos." + historicoTexto + "\n\nAnalise este auto de infracao e:\n1. Extraia todos os dados relevantes do documento\n2. Redija um recurso administrativo de 1a instancia (JARI) completo, formal e fundamentado\n\nO recurso deve:\n- Ser endereçado a Junta Administrativa de Recursos de Infracoes (JARI)\n- Apresentar qualificacao completa do recorrente (use dados do auto)\n- Arguir todos os vicios formais identificaveis\n- Fundamentar no CTB (arts. 280, 281, 282, 283) e Resolucoes CONTRAN pertinentes\n- Usar o historico relatado pelo cliente para fortalecer os argumentos quando relevante\n- Incluir pedido de cancelamento da autuacao e devolucao de pontos\n- Ter linguagem juridica formal mas clara\n- Ter ao menos 400 palavras\n\nResponda APENAS em JSON valido, sem markdown, sem texto fora do JSON:\n{\"dados\":{\"numero_auto\":\"...\",\"data\":\"...\",\"hora\":\"...\",\"local\":\"...\",\"codigo_infracao\":\"...\",\"descricao_infracao\":\"...\",\"artigo_ctb\":\"...\",\"placa\":\"...\",\"pontos\":\"...\",\"valor_multa\":\"...\"},\"recurso\":\"texto completo do recurso com quebras de linha \\n\"}",
               },
             ],
           },
@@ -81,19 +51,30 @@ Responda APENAS em JSON válido, sem markdown, sem texto fora do JSON:
     });
 
     if (!anthropicResponse.ok) {
-      const err = await anthropicResponse.text();
-      console.error("Anthropic error:", err);
-      return Response.json({ error: "Erro ao processar com a IA." }, { status: 502 });
+      const errText = await anthropicResponse.text();
+      console.error("Anthropic error:", errText);
+      return Response.json({ error: "Erro ao processar com a IA. Tente novamente." }, { status: 502 });
     }
 
     const data = await anthropicResponse.json();
     const rawText = data.content?.find((b) => b.type === "text")?.text || "";
     const clean = rawText.replace(/```json|```/g, "").trim();
-    const parsed = JSON.parse(clean);
+
+    let parsed;
+    try {
+      parsed = JSON.parse(clean);
+    } catch {
+      console.error("JSON parse error. Raw:", rawText.slice(0, 500));
+      return Response.json({ error: "A IA nao retornou formato valido. Tente novamente." }, { status: 500 });
+    }
+
+    if (!parsed.dados || !parsed.recurso) {
+      return Response.json({ error: "Resposta incompleta da IA. Tente novamente." }, { status: 500 });
+    }
 
     return Response.json(parsed);
   } catch (err) {
-    console.error("Erro na API route:", err);
+    console.error("Erro interno:", err);
     return Response.json({ error: "Erro interno. Tente novamente." }, { status: 500 });
   }
 }
