@@ -1238,6 +1238,127 @@ function HistoricoAtualizado({ user, setUser, setPdfModal, setDadosMulta, setRec
   );
 }
 
+// ── Aba FAQ ───────────────────────────────────────────────────
+function AbaFAQ({ setView }) {
+  const isMobile = useIsMobile();
+
+  const SECOES = [
+    {
+      titulo: "🗂️ Como Protocolar seu Recurso",
+      cor: C.green700,
+      itens: [
+        {
+          q: "Onde devo apresentar meu recurso de trânsito?",
+          a: "O recurso de 1ª instância deve ser apresentado à JARI (Junta Administrativa de Recursos de Infrações) do órgão que emitiu o auto de infração. Se a multa foi emitida pela CET, protocole na CET. Se foi pelo DETRAN, protocole no DETRAN. Se foi pela PRF (Polícia Rodoviária Federal), protocole na PRF. Consulte o site do órgão autuador para verificar se aceitam protocolo online."
+        },
+        {
+          q: "Qual é o prazo para apresentar o recurso?",
+          a: "O prazo é de 30 dias corridos a partir da data de notificação da autuação, conforme o Art. 283 do CTB. Atenção: o prazo conta da data de notificação, não da data da infração. Se perder esse prazo, o recurso não será aceito pela JARI."
+        },
+        {
+          q: "Quais documentos devo levar no protocolo?",
+          a: "Leve o recurso impresso e assinado, cópia do auto de infração ou notificação, cópia da CNH, cópia do RG e CPF, cópia do CRLV do veículo e comprovante de endereço. Se tiver o plano Revisão Jurídica, o recurso já virá assinado pelo advogado — leve o documento original impresso."
+        },
+        {
+          q: "Posso protocolar o recurso pela internet?",
+          a: "Sim! A maioria dos órgãos já aceita protocolo online. Acesse o portal do órgão autuador e procure a opção de recurso de multa. DETRAN SP: detran.sp.gov.br · CET SP: cetsp.com.br · PRF: prf.gov.br · SEMOB: consulte o site da prefeitura da sua cidade."
+        },
+        {
+          q: "O que é a JARI e o CETRAN?",
+          a: "A JARI (Junta Administrativa de Recursos de Infrações) é o órgão de 1ª instância que julga recursos de multas de trânsito. Se o recurso for negado pela JARI, você pode recorrer ao CETRAN (Conselho Estadual de Trânsito), que é a 2ª instância. Em alguns casos é possível ainda recorrer ao CONTRAN (3ª instância). Não desista no primeiro recurso!"
+        },
+      ]
+    },
+    {
+      titulo: "💡 Dicas de Trânsito",
+      cor: C.green600,
+      itens: [
+        {
+          q: "Quais são as infrações mais comuns e como evitá-las?",
+          a: "As infrações mais autuadas no Brasil são: excesso de velocidade (use o velocímetro e respeite as placas), uso do celular ao volante (infração gravíssima, 7 pontos — use suporte fixo ou viva voz), desrespeito à sinalização semafórica, estacionamento irregular e não uso do cinto de segurança. Fique atento especialmente em regiões com radares fixos e lombadas eletrônicas."
+        },
+        {
+          q: "Quantos pontos posso ter na CNH antes de suspender?",
+          a: "O limite é de 40 pontos em 12 meses para quem não tem infrações gravíssimas. Se você tiver alguma infração gravíssima no período, o limite cai para 30 pontos. Para motoristas profissionais (caminhoneiros, taxistas, motoristas de app) o limite é de 40 pontos, independentemente do tipo de infração."
+        },
+        {
+          q: "O que fazer se for parado em uma blitz?",
+          a: "Mantenha a calma, apresente os documentos solicitados (CNH e CRLV), não discuta com o agente no momento e assine o auto de infração se solicitado — assinar não significa que você concorda com a multa, apenas que você recebeu a notificação. Anote o nome e matrícula do agente e fotografe o local se possível. Qualquer irregularidade no auto deve ser arguida no recurso, não no momento da abordagem."
+        },
+        {
+          q: "Como saber se minha CNH está prestes a ser suspensa?",
+          a: "Acesse o portal do DETRAN do seu estado e consulte sua pontuação. Você também pode verificar pelo aplicativo do SENATRAN. Se estiver próximo do limite, dirija com mais cautela e considere recorrer de infrações antigas que ainda estejam dentro do prazo."
+        },
+        {
+          q: "O que é infração de responsabilidade do proprietário vs. condutor?",
+          a: "Algumas infrações são de responsabilidade do condutor (ex: excesso de velocidade, avanço de sinal) — os pontos vão para a CNH do condutor. Outras são de responsabilidade do proprietário do veículo (ex: estacionamento irregular) — se o condutor não for identificado, o proprietário paga a multa mas não recebe os pontos. Identificar o condutor real é um direito previsto no CTB."
+        },
+      ]
+    },
+  ];
+
+  return (
+    <div style={{ maxWidth: 820, margin: "0 auto", padding: isMobile ? "20px 16px" : "28px 24px", animation: "fadeUp 0.3s ease both" }}>
+      <BotaoVoltar onClick={() => setView("home")} label="← Voltar ao recurso" />
+
+      {/* Header */}
+      <div style={{ background: `linear-gradient(135deg,${C.green900},${C.green800})`, borderRadius: 16, padding: isMobile ? "20px" : "28px 32px", marginBottom: 28, position: "relative", overflow: "hidden" }}>
+        {[300, 200, 120].map((r, i) => <div key={i} style={{ position: "absolute", right: -60 + i * 20, top: "50%", transform: "translateY(-50%)", width: r, height: r, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.05)", pointerEvents: "none" }} />)}
+        <div style={{ position: "relative", zIndex: 1 }}>
+          <div style={{ color: C.green400, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", marginBottom: 8 }}>CENTRAL DE DÚVIDAS</div>
+          <div style={{ color: "#fff", fontWeight: 800, fontSize: isMobile ? 18 : 24, marginBottom: 8 }}>FAQ — Perguntas Frequentes</div>
+          <p style={{ color: "rgba(255,255,255,0.65)", fontSize: 13, lineHeight: 1.7 }}>Tudo que você precisa saber sobre como protocolar seu recurso e dicas para dirigir com segurança.</p>
+        </div>
+      </div>
+
+      {/* Seções */}
+      {SECOES.map((secao, si) => (
+        <div key={si} style={{ marginBottom: 28 }}>
+          <div style={{ background: secao.cor, borderRadius: "12px 12px 0 0", padding: "13px 20px", display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ color: "#fff", fontWeight: 800, fontSize: 15 }}>{secao.titulo}</span>
+          </div>
+          <div style={{ background: C.white, border: `1px solid ${C.border}`, borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden" }}>
+            {secao.itens.map((item, ii) => (
+              <FAQItemAba key={ii} pergunta={item.q} resposta={item.a} ultimo={ii === secao.itens.length - 1} />
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {/* CTA WhatsApp */}
+      <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=Olá! Tenho dúvidas sobre meu recurso de trânsito.`} target="_blank" rel="noopener noreferrer"
+        style={{ background: "#dcfce7", border: "2px solid #22c55e", borderRadius: 14, padding: "16px 22px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, textDecoration: "none" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 28 }}>💬</span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 14, color: "#166534", marginBottom: 2 }}>Não encontrou sua resposta?</div>
+            <div style={{ fontSize: 12, color: "#166534", opacity: 0.8 }}>Fale com um especialista pelo WhatsApp</div>
+          </div>
+        </div>
+        <div style={{ padding: "10px 20px", borderRadius: 9, background: "#22c55e", color: "#fff", fontSize: 13, fontWeight: 800, whiteSpace: "nowrap" }}>Falar agora →</div>
+      </a>
+    </div>
+  );
+}
+
+function FAQItemAba({ pergunta, resposta, ultimo }) {
+  const [aberto, setAberto] = useState(false);
+  return (
+    <div style={{ borderBottom: ultimo ? "none" : `1px solid ${C.border}` }}>
+      <button onClick={() => setAberto(a => !a)}
+        style={{ width: "100%", padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, background: aberto ? C.green50 : "transparent", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "background 0.2s" }}>
+        <span style={{ fontWeight: 600, fontSize: 14, color: C.text, lineHeight: 1.4 }}>{pergunta}</span>
+        <span style={{ fontSize: 18, color: C.green600, flexShrink: 0, transition: "transform 0.25s", transform: aberto ? "rotate(45deg)" : "rotate(0deg)" }}>+</span>
+      </button>
+      {aberto && (
+        <div style={{ padding: "4px 20px 16px", fontSize: 13, color: C.textMuted, lineHeight: 1.8, background: C.green50, animation: "fadeUp 0.2s ease both" }}>
+          {resposta}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Sidebar FAQ ───────────────────────────────────────────────
 const FAQ_PROTOCOLO = [
   {
@@ -1514,6 +1635,7 @@ function AppLogado({ user, setUser, view, setView }) {
           ...(planoPagoAtual ? [{ id: "protocolo", label: "🗂️ Protocolar" }] : []),
           { id: "historico", label: "🕓 Histórico" },
           { id: "planos", label: "⚖️ Planos" },
+          { id: "faq", label: "❓ FAQ" },
         ].map(({ id, label }) => (
           <button key={id} onClick={() => setView(id)} style={{ padding: "14px 18px", border: "none", background: "transparent", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: view === id ? 700 : 400, color: view === id ? C.green700 : C.textMuted, whiteSpace: "nowrap", borderBottom: `2px solid ${view === id ? C.green500 : "transparent"}`, transition: "all 0.2s" }}>{label}</button>
         ))}
@@ -1547,6 +1669,8 @@ function AppLogado({ user, setUser, view, setView }) {
       {view === "protocolo" && <AbaProtocolo dadosMulta={dadosMulta} setView={setView} />}
 
       {/* Aba Histórico */}
+      {view === "faq" && <AbaFAQ setView={setView} />}
+
       {view === "historico" && (
         <HistoricoAtualizado user={user} setUser={setUser} setPdfModal={setPdfModal} setDadosMulta={setDadosMulta} setRecurso={setRecurso} historicoIdRef={historicoIdRef} setStep={setStep} setView={setView} />
       )}
@@ -1869,9 +1993,6 @@ function AppLogado({ user, setUser, view, setView }) {
                 ))}
                 <button onClick={() => setView("planos")} style={{ width: "100%", padding: "9px", borderRadius: 8, border: `1px solid ${C.green200}`, background: C.green50, color: C.green700, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Ver planos →</button>
               </div>
-
-              {/* FAQ Sidebar */}
-              <SidebarFAQ />
 
               <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=Olá! Tenho dúvida sobre recurso de multa.`} target="_blank" rel="noopener noreferrer"
                 style={{ background: "#dcfce7", border: "1px solid #22c55e", borderRadius: 13, padding: "14px 17px", display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
