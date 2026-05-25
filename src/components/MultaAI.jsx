@@ -101,13 +101,18 @@ const DB = {
 
   // ── Supabase: buscar usuário ──
   async getAsync(email) {
+    // Advogado padrão: sempre do localStorage (não precisa de Supabase)
+    if (email === "advogado@multa.ai") {
+      return this.get(email);
+    }
     if (this._useSupabase()) {
       const rows = await sbFetch(`/usuarios?email=eq.${encodeURIComponent(email)}&limit=1`, { method: "GET" });
       if (rows && rows.length > 0) {
         const u = rows[0];
         return { nome: u.nome, senha: u.senha, email: u.email, historico: u.historico || [], isAdv: u.is_adv || false, perfil: u.perfil || {}, veiculos: u.veiculos || [] };
       }
-      return null;
+      // Não encontrou no Supabase, tenta localStorage como fallback
+      return this.get(email);
     }
     return this.get(email);
   },
@@ -317,107 +322,126 @@ function DisclaimerModal({ onAceitar, onRecusar }) {
   );
 }
 
-// ── Pagamento Modal ───────────────────────────────────────────
+// ── Pagamento Modal — PIX via Mercado Pago ────────────────────
 function PagamentoModal({ plano, onClose, onSuccess, dadosCliente = {}, dadosMulta = {}, historico_penalidade = "" }) {
-  const info = PLANOS_MAP[plano] || { titulo: plano, preco: "" };
-  const [metodo, setMetodo] = useState("pix");
-  const [fase, setFase] = useState("escolha");
-  const [cartao, setCartao] = useState({ numero: "", nome: "", validade: "", cvv: "" });
-  const [err, setErr] = useState("");
+  const info = PLANOS_MAP[plano] || { titulo: plano, preco: "", precoNum: 0 };
+  const [fase, setFase] = useState("gerando");
+  const [pixData, setPixData] = useState(null);
+  const [copiado, setCopiado] = useState(false);
+  const [erroMsg, setErroMsg] = useState("");
+  const poolRef = useRef(null);
 
-  const processar = async () => {
-    if (metodo === "cartao") {
-      if (cartao.numero.replace(/\s/g, "").length < 16) { setErr("Número inválido."); return; }
-      if (!cartao.nome.trim()) { setErr("Nome obrigatório."); return; }
-      if (!cartao.validade.match(/\d{2}\/\d{2}/)) { setErr("Validade inválida (MM/AA)."); return; }
-      if (cartao.cvv.length < 3) { setErr("CVV inválido."); return; }
+  useEffect(() => {
+    gerarPix();
+    return () => { if (poolRef.current) clearInterval(poolRef.current); };
+  }, []);
+
+  const gerarPix = async () => {
+    setFase("gerando");
+    try {
+      const res = await fetch("/api/pix", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          plano: info.titulo,
+          email: dadosCliente.email || "cliente@multa.ai",
+          nome: dadosCliente.nome || "Cliente",
+          valor: info.precoNum || 69.90,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao gerar PIX");
+      setPixData(data);
+      setFase("aguardando");
+      iniciarVerificacao(data.id);
+    } catch (e) {
+      setErroMsg(e.message);
+      setFase("erro");
     }
-    setErr(""); setFase("processando");
-    await enviarFormspree({
-      _subject: `🚨 Nova contratação Multa.AI — ${info.titulo} (${info.preco})`,
-      "Plano": info.titulo, "Valor": info.preco,
-      "Método": metodo === "pix" ? "PIX" : "Cartão",
-      "Data/Hora": new Date().toLocaleString("pt-BR"),
-      "Nome": dadosCliente.nome || "—", "E-mail": dadosCliente.email || "—",
-      "Telefone": dadosCliente.telefone || "—",
-      "Auto": dadosMulta?.numero_auto || "—",
-      "Infração": dadosMulta?.descricao_infracao || "—",
-      "Placa": dadosMulta?.placa || "—",
-      "Histórico": historico_penalidade || "—",
-    });
-    setTimeout(() => { setFase("sucesso"); setTimeout(onSuccess, 2000); }, 1600);
   };
 
-  const fmtNum = v => v.replace(/\D/g, "").slice(0, 16).replace(/(.{4})/g, "$1 ").trim();
-  const fmtVal = v => v.replace(/\D/g, "").slice(0, 4).replace(/(\d{2})(\d{0,2})/, "$1/$2");
+  const iniciarVerificacao = (id) => {
+    poolRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/pix?id=${id}`);
+        const data = await res.json();
+        if (data.status === "approved") {
+          clearInterval(poolRef.current);
+          setFase("confirmado");
+          await enviarFormspree({
+            _subject: `✅ PIX confirmado — ${info.titulo} (${info.preco})`,
+            "Plano": info.titulo, "Valor": info.preco, "Método": "PIX Mercado Pago",
+            "Payment ID": id, "Data": new Date().toLocaleString("pt-BR"),
+            "Nome": dadosCliente.nome || "—", "E-mail": dadosCliente.email || "—",
+            "Auto": dadosMulta?.numero_auto || "—", "Infração": dadosMulta?.descricao_infracao || "—",
+          });
+          setTimeout(onSuccess, 2500);
+        }
+      } catch {}
+    }, 3000);
+  };
+
+  const copiarPix = () => {
+    if (pixData?.qr_code) { navigator.clipboard.writeText(pixData.qr_code); setCopiado(true); setTimeout(() => setCopiado(false), 3000); }
+  };
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-      <div style={{ background: C.white, borderRadius: 18, width: "100%", maxWidth: 430, boxShadow: "0 20px 60px rgba(0,0,0,0.3)", overflow: "hidden" }}>
+      <div style={{ background: C.white, borderRadius: 18, width: "100%", maxWidth: 420, boxShadow: "0 20px 60px rgba(0,0,0,0.3)", overflow: "hidden" }}>
         <div style={{ background: `linear-gradient(135deg,${C.green700},${C.green600})`, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, fontWeight: 600, letterSpacing: "0.08em" }}>{info.titulo.toUpperCase()}</div>
+            <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, fontWeight: 600, letterSpacing: "0.08em" }}>{info.titulo.toUpperCase()} · PIX</div>
             <div style={{ color: "#fff", fontWeight: 800, fontSize: 22 }}>{info.preco}</div>
           </div>
           <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", width: 32, height: 32, borderRadius: "50%", cursor: "pointer", fontSize: 17 }}>×</button>
         </div>
-        <div style={{ padding: 22 }}>
-          {fase === "escolha" && (
-            <>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
-                {[{ id: "pix", icon: "⚡", label: "PIX", sub: "Aprovação imediata" }, { id: "cartao", icon: "💳", label: "Cartão", sub: "Crédito/débito" }].map(({ id, icon, label, sub }) => (
-                  <button key={id} onClick={() => setMetodo(id)} style={{ padding: "12px 8px", borderRadius: 9, cursor: "pointer", fontFamily: "inherit", textAlign: "center", border: `2px solid ${metodo === id ? C.green500 : C.border}`, background: metodo === id ? C.green50 : C.white }}>
-                    <div style={{ fontSize: 22, marginBottom: 4 }}>{icon}</div>
-                    <div style={{ fontWeight: 700, color: C.text, fontSize: 13 }}>{label}</div>
-                    <div style={{ fontSize: 11, color: C.textMuted }}>{sub}</div>
-                  </button>
-                ))}
+        <div style={{ padding: 24 }}>
+          {fase === "gerando" && <Spinner label="Gerando QR Code PIX..." />}
+          {fase === "aguardando" && pixData && (
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 13, color: C.textMuted, marginBottom: 16, lineHeight: 1.6 }}>
+                Escaneie o QR Code com o app do seu banco ou copie o código PIX.
               </div>
-              {metodo === "pix" && (
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ background: C.green50, border: `1px solid ${C.green100}`, borderRadius: 10, padding: 16, display: "inline-block", marginBottom: 12 }}>
-                    <svg width="100" height="100" viewBox="0 0 100 100">
-                      <rect width="100" height="100" fill="white" />
-                      <rect x="5" y="5" width="32" height="32" fill="none" stroke={C.green700} strokeWidth="3" rx="2" />
-                      <rect x="63" y="5" width="32" height="32" fill="none" stroke={C.green700} strokeWidth="3" rx="2" />
-                      <rect x="5" y="63" width="32" height="32" fill="none" stroke={C.green700} strokeWidth="3" rx="2" />
-                      <rect x="12" y="12" width="18" height="18" fill={C.green700} rx="1" />
-                      <rect x="70" y="12" width="18" height="18" fill={C.green700} rx="1" />
-                      <rect x="12" y="70" width="18" height="18" fill={C.green700} rx="1" />
-                      {[42, 52, 62, 42, 52, 62].map((x, i) => <rect key={i} x={x} y={12 + i * 8} width="7" height="6" fill={C.green600} rx="1" />)}
-                    </svg>
-                  </div>
-                  <div style={{ fontFamily: "monospace", fontSize: 11, color: C.textMuted, background: C.offWhite, borderRadius: 7, padding: "7px 12px", marginBottom: 12 }}>multa-ai@pagamento.com</div>
-                  <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                    <button onClick={() => navigator.clipboard.writeText("multa-ai@pagamento.com")} style={{ padding: "7px 14px", borderRadius: 7, border: `1px solid ${C.border}`, background: C.white, color: C.textMid, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>📋 Copiar chave</button>
-                    <button onClick={processar} style={{ padding: "7px 18px", borderRadius: 7, border: "none", background: `linear-gradient(135deg,${C.green700},${C.green500})`, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Já paguei →</button>
-                  </div>
+              {pixData.qr_code_base64 ? (
+                <div style={{ background: C.green50, border: `1px solid ${C.green100}`, borderRadius: 12, padding: 16, display: "inline-block", marginBottom: 16 }}>
+                  <img src={`data:image/png;base64,${pixData.qr_code_base64}`} alt="QR Code PIX" width={180} height={180} style={{ display: "block" }} />
                 </div>
+              ) : (
+                <div style={{ background: C.green50, borderRadius: 12, padding: 24, marginBottom: 16, fontSize: 13, color: C.textMuted }}>Carregando QR Code...</div>
               )}
-              {metodo === "cartao" && (
-                <div>
-                  {[{ l: "Número do cartão", k: "numero", p: "0000 0000 0000 0000", f: fmtNum }, { l: "Nome no cartão", k: "nome", p: "JOAO DA SILVA", f: v => v.toUpperCase() }, { l: "Validade", k: "validade", p: "MM/AA", f: fmtVal }, { l: "CVV", k: "cvv", p: "123", f: v => v.replace(/\D/g, "").slice(0, 4) }].map(({ l, k, p, f }) => (
-                    <div key={k} style={{ marginBottom: 11 }}>
-                      <label style={{ fontSize: 11, color: C.textMuted, display: "block", marginBottom: 5, fontWeight: 600 }}>{l}</label>
-                      <input value={cartao[k]} onChange={e => setCartao(prev => ({ ...prev, [k]: f(e.target.value) }))} placeholder={p}
-                        style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 13, background: C.offWhite, color: C.text, outline: "none", fontFamily: "inherit" }} />
-                    </div>
-                  ))}
-                  {err && <div style={{ color: C.danger, fontSize: 12, marginBottom: 10, padding: "7px 10px", background: C.dangerSoft, borderRadius: 7 }}>{err}</div>}
-                  <button onClick={processar} style={{ width: "100%", padding: "12px", borderRadius: 9, border: "none", background: `linear-gradient(135deg,${C.green700},${C.green500})`, color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                    Pagar {info.preco} →
+              {pixData.qr_code && (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 6, fontWeight: 600 }}>CÓDIGO COPIA E COLA</div>
+                  <div style={{ background: C.offWhite, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", fontSize: 10, color: C.textMid, wordBreak: "break-all", lineHeight: 1.6, marginBottom: 10, maxHeight: 60, overflow: "hidden" }}>
+                    {pixData.qr_code.slice(0, 80)}...
+                  </div>
+                  <button onClick={copiarPix} style={{ width: "100%", padding: "12px", borderRadius: 9, border: "none", background: copiado ? C.green500 : `linear-gradient(135deg,${C.green700},${C.green500})`, color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}>
+                    {copiado ? "✓ Código copiado!" : "📋 Copiar código PIX"}
                   </button>
                 </div>
               )}
-              <p style={{ fontSize: 11, color: C.textLight, textAlign: "center", marginTop: 12 }}>🔒 Pagamento 100% seguro · SSL · PCI DSS</p>
-            </>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center", padding: "10px 14px", background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 9 }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#f59e0b" }} />
+                <span style={{ fontSize: 12, color: C.gold, fontWeight: 600 }}>Aguardando confirmação do pagamento...</span>
+              </div>
+              <p style={{ fontSize: 11, color: C.textLight, marginTop: 10, lineHeight: 1.6 }}>Acesso liberado automaticamente após confirmação do banco.</p>
+            </div>
           )}
-          {fase === "processando" && <Spinner label="Processando pagamento..." />}
-          {fase === "sucesso" && (
-            <div style={{ textAlign: "center", padding: "20px 0" }}>
-              <div style={{ width: 60, height: 60, borderRadius: "50%", background: C.green50, border: `2px solid ${C.green400}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, margin: "0 auto 14px", boxShadow: `0 0 0 12px ${C.glow}` }}>✓</div>
-              <div style={{ fontWeight: 800, fontSize: 17, color: C.text, marginBottom: 6 }}>Pagamento confirmado!</div>
+          {fase === "confirmado" && (
+            <div style={{ textAlign: "center", padding: "16px 0" }}>
+              <div style={{ width: 64, height: 64, borderRadius: "50%", background: C.green50, border: `2px solid ${C.green400}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, margin: "0 auto 16px", boxShadow: `0 0 0 12px ${C.glow}` }}>✓</div>
+              <div style={{ fontWeight: 800, fontSize: 18, color: C.text, marginBottom: 8 }}>Pagamento confirmado!</div>
               <div style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.7 }}>{info.confirmacao}</div>
+            </div>
+          )}
+          {fase === "erro" && (
+            <div style={{ textAlign: "center", padding: "16px 0" }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>⚠️</div>
+              <div style={{ fontWeight: 700, fontSize: 15, color: C.text, marginBottom: 8 }}>Não foi possível gerar o PIX</div>
+              <div style={{ fontSize: 13, color: C.textMuted, marginBottom: 20, lineHeight: 1.6 }}>{erroMsg}</div>
+              <button onClick={gerarPix} style={{ width: "100%", padding: "12px", borderRadius: 9, border: "none", background: `linear-gradient(135deg,${C.green700},${C.green500})`, color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                Tentar novamente →
+              </button>
             </div>
           )}
         </div>
