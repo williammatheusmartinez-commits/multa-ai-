@@ -1274,20 +1274,81 @@ function AppLogado({ user, setUser, view, setView }) {
     const p = user.perfil || {};
     const v = user.veiculos?.[0] || {};
     try {
-      const f = files[0];
-      const isPdf = f.type === "application/pdf";
-      const mediaType = isPdf ? "application/pdf" : (f.type || "image/jpeg");
-      const fileB64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result.split(",")[1]); r.onerror = rej; r.readAsDataURL(f); });
-      const response = await fetch("/api/recurso", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileB64, fileType: isPdf ? "pdf" : "image", mediaType, historicoPenalidade: penalidade, perfil: p, veiculo: v }),
+      // Converte arquivos para base64 (máx 2)
+      const arquivos = await Promise.all(files.slice(0, 2).map(async (f) => {
+        const isPdf = f.type === "application/pdf";
+        const mediaType = isPdf ? "application/pdf" : (f.type || "image/jpeg");
+        const b64 = await new Promise((res, rej) => {
+          const r = new FileReader();
+          r.onload = e => res(e.target.result.split(",")[1]);
+          r.onerror = rej;
+          r.readAsDataURL(f);
+        });
+        return { b64, mediaType, fileType: isPdf ? "pdf" : "image", nome: f.name };
+      }));
+
+      // ── CHAMADA 1: Extrair dados dos documentos ──────────────
+      const r1 = await fetch("/api/extrair", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ arquivos }),
       });
-      if (!response.ok) { const err = await response.json().catch(() => ({})); throw new Error(err.error || `Erro ${response.status}`); }
-      const parsed = await response.json();
-      if (!parsed.dados || !parsed.recurso) throw new Error("Resposta incompleta da IA.");
-      setDadosMulta(parsed.dados);
-      setRecurso(parsed.recurso);
-      salvarHistorico(parsed.dados, parsed.recurso);
+      if (!r1.ok) { const e = await r1.json().catch(() => ({})); throw new Error(e.error || `Erro ${r1.status}`); }
+      const { extraido } = await r1.json();
+
+      // Monta dados do auto e qualificação mesclando docs + perfil
+      const a = extraido?.auto || {};
+      const pe = extraido?.pessoais || {};
+      const nome    = pe.nome       || p.nome     || null;
+      const cpf     = pe.cpf        || p.cpf      || null;
+      const rg      = pe.rg         || p.rg       || null;
+      const cnh     = pe.numero_cnh || p.cnh      || null;
+      const placa   = a.placa       || pe.placa_veiculo || v.placa  || null;
+      const renavam = pe.renavam    || v.renavam  || null;
+      const end     = pe.endereco   || p.endereco || null;
+
+      const dadosAuto = {
+        numero_auto:        a.numero_auto        || "Não identificado",
+        data:               a.data               || "Não identificado",
+        hora:               a.hora               || "Não identificado",
+        local:              a.local              || "Não identificado",
+        codigo_infracao:    a.codigo_infracao    || "Não identificado",
+        descricao_infracao: a.descricao_infracao || "Não identificado",
+        artigo_ctb:         a.artigo_ctb         || "Não identificado",
+        placa:              placa                || "Não identificado",
+        pontos:             a.pontos             || "Não identificado",
+        valor_multa:        a.valor_multa        || "Não identificado",
+        orgao_autuador:     a.orgao_autuador     || "Não identificado",
+        agente_autuador:    a.agente_autuador    || "Não identificado",
+        tipo_infracao:      a.tipo_infracao      || "Não identificado",
+      };
+
+      const qualificacao = [
+        nome    && `Nome: ${nome}`,
+        cpf     && `CPF: ${cpf}`,
+        rg      && `RG: ${rg}`,
+        cnh     && `CNH: ${cnh}`,
+        placa   && `Placa: ${placa}`,
+        renavam && `RENAVAM: ${renavam}`,
+        end     && `Endereco: ${end}`,
+        p.cidade   && `Cidade: ${p.cidade}`,
+        p.uf       && `UF: ${p.uf}`,
+        p.telefone && `Telefone: ${p.telefone}`,
+      ].filter(Boolean).join("\n");
+
+      // ── CHAMADA 2: Gerar o recurso (só texto) ────────────────
+      const r2 = await fetch("/api/recurso", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dadosAuto, qualificacao, historicoPenalidade: penalidade }),
+      });
+      if (!r2.ok) { const e = await r2.json().catch(() => ({})); throw new Error(e.error || `Erro ${r2.status}`); }
+      const { recurso } = await r2.json();
+      if (!recurso || recurso.length < 100) throw new Error("Resposta incompleta da IA.");
+
+      setDadosMulta(dadosAuto);
+      setRecurso(recurso);
+      salvarHistorico(dadosAuto, recurso);
       setStep(4);
     } catch (e) {
       const msg = e.message || "";
