@@ -1063,10 +1063,24 @@ function PainelAdvogado({ onLogout }) {
                 <div style={{ padding: 18 }}>
                   {sel.historico_penalidade && <div style={{ background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 12, color: "#92400e" }}><strong>Histórico:</strong><br />{sel.historico_penalidade}</div>}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
-                    {Object.entries(sel.dados || {}).filter(([, v]) => v && v !== "N/A").map(([k, v]) => (
+                    {[
+                      { k: "numero_auto",        label: "Nº do Auto" },
+                      { k: "data",               label: "Data" },
+                      { k: "hora",               label: "Hora" },
+                      { k: "local",              label: "Local" },
+                      { k: "codigo_infracao",    label: "Código" },
+                      { k: "descricao_infracao", label: "Infração" },
+                      { k: "artigo_ctb",         label: "Artigo CTB" },
+                      { k: "placa",              label: "Placa" },
+                      { k: "pontos",             label: "Pontos" },
+                      { k: "valor_multa",        label: "Valor" },
+                      { k: "orgao_autuador",     label: "Órgão" },
+                      { k: "agente_autuador",    label: "Agente" },
+                      { k: "tipo_infracao",      label: "Gravidade" },
+                    ].filter(({ k }) => sel.dados?.[k] && sel.dados[k] !== "N/A" && sel.dados[k] !== "—").map(({ k, label }) => (
                       <div key={k} style={{ background: C.green50, borderRadius: 7, padding: "8px 10px" }}>
-                        <div style={{ fontSize: 9, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>{k.replace(/_/g, " ")}</div>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{v}</div>
+                        <div style={{ fontSize: 9, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>{label}</div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{sel.dados[k]}</div>
                       </div>
                     ))}
                   </div>
@@ -1458,13 +1472,32 @@ function AppLogado({ user, setUser, view, setView }) {
                     <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 13, padding: 16, marginBottom: 14 }}>
                       <div style={{ fontSize: 11, fontWeight: 700, color: C.green600, letterSpacing: "0.07em", marginBottom: 11, textTransform: "uppercase" }}>📋 Infração identificada</div>
                       <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fill,minmax(${isMobile ? 140 : 160}px,1fr))`, gap: 7 }}>
-                        {Object.entries(dadosMulta).filter(([, v]) => v && v !== "N/A" && v !== "—").map(([k, v]) => (
-                          <div key={k} style={{ background: C.green50, border: `1px solid ${C.green100}`, borderRadius: 7, padding: "8px 10px" }}>
-                            <div style={{ fontSize: 9, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>{k.replace(/_/g, " ")}</div>
-                            <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{v}</div>
+                        {[
+                          { k: "numero_auto",        label: "Nº do Auto" },
+                          { k: "data",               label: "Data" },
+                          { k: "hora",               label: "Hora" },
+                          { k: "local",              label: "Local" },
+                          { k: "codigo_infracao",    label: "Código CONTRAN" },
+                          { k: "descricao_infracao", label: "Infração" },
+                          { k: "artigo_ctb",         label: "Artigo CTB" },
+                          { k: "placa",              label: "Placa" },
+                          { k: "pontos",             label: "Pontos" },
+                          { k: "valor_multa",        label: "Valor da Multa" },
+                          { k: "orgao_autuador",     label: "Órgão Autuador" },
+                          { k: "agente_autuador",    label: "Agente" },
+                          { k: "tipo_infracao",      label: "Gravidade" },
+                        ].filter(({ k }) => dadosMulta[k] && dadosMulta[k] !== "N/A" && dadosMulta[k] !== "—").map(({ k, label }) => (
+                          <div key={k} style={{ background: C.green50, border: `1px solid ${C.green100}`, borderRadius: 7, padding: "8px 10px", gridColumn: k === "local" || k === "descricao_infracao" ? "1/-1" : undefined }}>
+                            <div style={{ fontSize: 9, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>{label}</div>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{dadosMulta[k]}</div>
                           </div>
                         ))}
                       </div>
+                      {Object.values(dadosMulta).every(v => !v || v === "N/A" || v === "—" || v === "Nao identificado" || v === "Não identificado") && (
+                        <div style={{ fontSize: 13, color: C.textMuted, textAlign: "center", padding: "12px 0" }}>
+                          ⚠️ Não foi possível identificar os dados do auto. Verifique se a imagem está legível.
+                        </div>
+                      )}
                     </div>
 
                     {/* Recurso bloqueado visualmente */}
