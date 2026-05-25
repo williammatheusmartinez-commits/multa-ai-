@@ -65,6 +65,11 @@ Responda APENAS com JSON valido, sem nenhum texto antes ou depois, sem markdown:
 {"numero_auto":"...","data":"...","hora":"...","local":"...","codigo_infracao":"...","descricao_infracao":"...","artigo_ctb":"...","placa":"...","pontos":"...","valor_multa":"...","orgao_autuador":"...","agente_autuador":"...","tipo_infracao":"..."}`;
 
     // PASSO 2: gerar o recurso com os dados extraidos
+    // Data atual formatada no padrão brasileiro
+    const dataHoje = new Date().toLocaleDateString("pt-BR", {
+      day: "2-digit", month: "long", year: "numeric", timeZone: "America/Sao_Paulo"
+    });
+
     const promptRecurso = (dados) => `Voce e um advogado especialista em Direito de Transito brasileiro com vasta experiencia em recursos administrativos perante a JARI e CETRAN.
 
 DADOS DO AUTO DE INFRACAO EXTRAIDOS:
@@ -109,7 +114,7 @@ ESTRUTURA OBRIGATORIA:
    - Arquivamento do processo administrativo
    - Devolucao dos ${dados.pontos} pontos na CNH
    - Restituicao do valor de ${dados.valor_multa} se ja pago
-7. FECHO: local, data, espaco para assinatura e nome do recorrente
+7. FECHO: "Local e data: [cidade do recorrente ou cidade da infracao], ${dataHoje}." Espaco para assinatura e nome do recorrente
 
 IMPORTANTE: Minimo de 800 palavras. Use linguagem juridica formal. Cite os dados reais do auto extraidos acima.
 
@@ -229,3 +234,4 @@ Responda APENAS com o texto do recurso, sem JSON, sem markdown, sem explicacoes 
     return Response.json({ error: "Erro interno: " + err.message }, { status: 500 });
   }
 }
+
