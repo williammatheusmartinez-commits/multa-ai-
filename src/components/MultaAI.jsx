@@ -21,14 +21,14 @@ const C = {
 // ── Planos ────────────────────────────────────────────────────
 const PLANOS = [
   {
-    id:"essencial", icon:"🤖", titulo:"IA Essencial", preco:"R$ 69,90",
+    id:"essencial", icon:"🤖", titulo:"IA Essencial", preco:"R$ 69,90", precoNum:69.90,
     cor:C.green600, badge:null, destaque:false,
     itens:["Elaboração automática via IA","Download do recurso em PDF","Sem revisão humana","Sem assinatura de advogado"],
     confirmacao:"Plano confirmado! Seu recurso está disponível abaixo.",
     liberaPDF:true,
   },
   {
-    id:"juridico", icon:"⚖️", titulo:"Revisão Jurídica", preco:"R$ 199,00",
+    id:"juridico", icon:"⚖️", titulo:"Revisão Jurídica", preco:"R$ 199,00", precoNum:199.00,
     cor:C.green700, badge:"RECOMENDADO", destaque:true,
     itens:["Elaboração via IA","Revisão técnica por advogado","Assinatura digital OAB","Retorno em até 24h úteis","1 rodada de ajustes inclusa"],
     confirmacao:"O advogado revisará e retornará em até 24h com o documento assinado.",
@@ -963,7 +963,30 @@ function PainelAdvogado({ onLogout }) {
   const [nota, setNota] = useState("");
   const [concluidos, setConcluidos] = useState({});
   const [pdfModal, setPdfModal] = useState(null);
+  const [minutas, setMinutas] = useState({}); // { [casoId]: { nome, url, data } }
+  const [uploadingMinuta, setUploadingMinuta] = useState(false);
+  const minutaRef = useRef();
   const isMobile = useIsMobile();
+
+  const handleMinutaUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file || !sel) return;
+    if (file.type !== "application/pdf") { alert("Envie apenas arquivos PDF."); return; }
+    if (file.size > 10 * 1024 * 1024) { alert("Arquivo muito grande. Máximo 10MB."); return; }
+    setUploadingMinuta(true);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const url = ev.target.result; // base64 data URL
+      const minuta = { nome: file.name, url, data: new Date().toISOString() };
+      setMinutas(prev => ({ ...prev, [sel.id]: minuta }));
+      // Salva no DB para o cliente acessar
+      DB.updateHistorico(sel.clienteEmail, sel.id, { minutaAdvogado: minuta });
+      // Atualiza casos
+      setCasos(DB.getAllCasos());
+      setUploadingMinuta(false);
+    };
+    reader.readAsDataURL(file);
+  };
 
   return (
     <div style={{ minHeight: "100vh", background: C.offWhite }}>
@@ -1022,8 +1045,44 @@ function PainelAdvogado({ onLogout }) {
                     ))}
                   </div>
                   <label style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 7, textTransform: "uppercase" }}>Feedback ao cliente</label>
-                  <textarea value={nota} onChange={e => setNota(e.target.value)} rows={4} placeholder="Observações, aprovação ou ajustes..."
+                  <textarea value={nota} onChange={e => setNota(e.target.value)} rows={3} placeholder="Observações, aprovação ou ajustes..."
                     style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, background: C.offWhite, color: C.text, outline: "none", fontFamily: "inherit", lineHeight: 1.6 }} />
+
+                  {/* ── Envio de minuta revisada ── */}
+                  <div style={{ background: C.green50, border: `1px solid ${C.green100}`, borderRadius: 10, padding: "14px 16px", marginTop: 14 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: C.green700, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                      <span>📤</span> Enviar minuta revisada ao cliente
+                    </div>
+                    <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 10, lineHeight: 1.6 }}>
+                      Faça upload do PDF revisado e assinado. O cliente poderá baixar direto no Histórico.
+                    </p>
+                    <input ref={minutaRef} type="file" accept="application/pdf" style={{ display: "none" }} onChange={handleMinutaUpload} />
+                    {(minutas[sel.id] || sel.minutaAdvogado) ? (
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, background: C.white, border: `1px solid ${C.green200}`, borderRadius: 8, padding: "10px 14px", marginBottom: 8 }}>
+                          <span style={{ fontSize: 20 }}>📄</span>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{(minutas[sel.id] || sel.minutaAdvogado)?.nome}</div>
+                            <div style={{ fontSize: 11, color: C.textMuted }}>Enviado em {fmtDate((minutas[sel.id] || sel.minutaAdvogado)?.data)}</div>
+                          </div>
+                          <a href={(minutas[sel.id] || sel.minutaAdvogado)?.url} download={(minutas[sel.id] || sel.minutaAdvogado)?.nome}
+                            style={{ padding: "5px 12px", borderRadius: 6, border: `1px solid ${C.green500}`, background: C.white, color: C.green700, fontSize: 11, fontWeight: 700, cursor: "pointer", textDecoration: "none" }}>
+                            ↓ Baixar
+                          </a>
+                        </div>
+                        <button onClick={() => minutaRef.current.click()}
+                          style={{ width: "100%", padding: "8px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.white, color: C.textMuted, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
+                          🔄 Substituir PDF
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={() => minutaRef.current.click()} disabled={uploadingMinuta}
+                        style={{ width: "100%", padding: "11px", borderRadius: 8, border: "none", background: `linear-gradient(135deg,${C.green700},${C.green500})`, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", opacity: uploadingMinuta ? 0.7 : 1 }}>
+                        {uploadingMinuta ? "Processando..." : "📎 Selecionar PDF revisado"}
+                      </button>
+                    )}
+                  </div>
+
                   <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
                     <button onClick={() => setSel(null)} style={{ padding: "9px 16px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.white, color: C.textMuted, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Voltar</button>
                     <button onClick={() => { setConcluidos(p => ({ ...p, [sel.id]: true })); setSel(null); }} style={{ flex: 1, padding: "9px", borderRadius: 8, border: "none", background: `linear-gradient(135deg,${C.green700},${C.green500})`, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>✓ Marcar como revisado</button>
@@ -1198,13 +1257,20 @@ function AppLogado({ user, setUser, view, setView }) {
                   <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>{h.dados?.descricao_infracao || "Infração"}</div>
                   <div style={{ fontSize: 12, color: C.textMuted }}>{fmtDate(h.data)} · Placa: {h.dados?.placa || "—"} · {h.dados?.valor_multa || "—"}</div>
                 </div>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                   {h.planoPago && <span style={{ fontSize: 11, background: C.green50, color: C.green700, border: `1px solid ${C.green100}`, borderRadius: 20, padding: "2px 10px", fontWeight: 600 }}>✓ {PLANOS_MAP[h.planoPago]?.titulo}</span>}
                   {h.planoPago ? (
-                    <button onClick={() => setPdfModal({ recurso: h.recurso, dados: h.dados, historico_penalidade: h.historico_penalidade })} style={{ padding: "6px 12px", borderRadius: 7, border: `1px solid ${C.border}`, background: C.white, color: C.textMid, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>📄 Ver PDF</button>
+                    <button onClick={() => setPdfModal({ recurso: h.recurso, dados: h.dados, historico_penalidade: h.historico_penalidade })} style={{ padding: "6px 12px", borderRadius: 7, border: `1px solid ${C.border}`, background: C.white, color: C.textMid, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>📄 Ver recurso</button>
                   ) : (
                     <button onClick={() => { setDadosMulta(h.dados); setRecurso(h.recurso); historicoIdRef.current = h.id; setStep(4); setView("home"); }}
                       style={{ padding: "6px 12px", borderRadius: 7, border: "none", background: `linear-gradient(135deg,${C.green700},${C.green500})`, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Pagar e acessar →</button>
+                  )}
+                  {/* Minuta revisada pelo advogado */}
+                  {h.minutaAdvogado && (
+                    <a href={h.minutaAdvogado.url} download={h.minutaAdvogado.nome}
+                      style={{ padding: "6px 12px", borderRadius: 7, border: "none", background: `linear-gradient(135deg,${C.green800},${C.green700})`, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>
+                      ⚖️ Baixar minuta revisada
+                    </a>
                   )}
                 </div>
               </div>
@@ -1665,3 +1731,4 @@ export default function Root() {
     </div>
   );
 }
+
