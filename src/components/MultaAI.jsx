@@ -972,19 +972,22 @@ function PainelAdvogado({ onLogout }) {
     const file = e.target.files[0];
     if (!file || !sel) return;
     if (file.type !== "application/pdf") { alert("Envie apenas arquivos PDF."); return; }
-    if (file.size > 10 * 1024 * 1024) { alert("Arquivo muito grande. Máximo 10MB."); return; }
+    if (file.size > 5 * 1024 * 1024) { alert("Arquivo muito grande. Máximo 5MB."); return; }
     setUploadingMinuta(true);
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       const url = ev.target.result; // base64 data URL
       const minuta = { nome: file.name, url, data: new Date().toISOString() };
+      // Atualiza estado local imediato
       setMinutas(prev => ({ ...prev, [sel.id]: minuta }));
-      // Salva no DB para o cliente acessar
-      DB.updateHistorico(sel.clienteEmail, sel.id, { minutaAdvogado: minuta });
-      // Atualiza casos
+      // Salva no DB do cliente (Supabase + localStorage) para ele ver no histórico
+      await DB.updateHistoricoAsync(sel.clienteEmail, sel.id, { minutaAdvogado: minuta });
+      // Recarrega casos para refletir mudança
       setCasos(DB.getAllCasos());
       setUploadingMinuta(false);
+      alert("✅ Minuta enviada! O cliente já pode baixar no Histórico.");
     };
+    reader.onerror = () => { alert("Erro ao ler o arquivo. Tente novamente."); setUploadingMinuta(false); };
     reader.readAsDataURL(file);
   };
 
@@ -1095,6 +1098,72 @@ function PainelAdvogado({ onLogout }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── Histórico com refresh do Supabase ────────────────────────
+function HistoricoAtualizado({ user, setUser, setPdfModal, setDadosMulta, setRecurso, historicoIdRef, setStep, setView }) {
+  const [historico, setHistorico] = useState(user.historico || []);
+  const [loading, setLoading] = useState(true);
+  const isMobile = useIsMobile();
+
+  // Busca histórico fresco do Supabase ao montar (pega minutaAdvogado atualizada)
+  useEffect(() => {
+    DB.getAsync(user.email).then(u => {
+      if (u && u.historico) {
+        setHistorico(u.historico);
+        setUser(prev => ({ ...prev, historico: u.historico }));
+      }
+      setLoading(false);
+    });
+  }, []);
+
+  if (loading) return <div style={{ padding: 40, textAlign: "center" }}><Spinner label="Carregando histórico..." /></div>;
+
+  return (
+    <div style={{ maxWidth: 800, margin: "0 auto", padding: "28px 20px", animation: "fadeUp 0.3s ease both" }}>
+      <div style={{ fontWeight: 800, fontSize: 20, marginBottom: 4 }}>Seus recursos</div>
+      <div style={{ color: C.textMuted, fontSize: 14, marginBottom: 20 }}>{historico.length} recurso{historico.length !== 1 ? "s" : ""}</div>
+      {historico.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "56px 20px", background: C.white, borderRadius: 14, border: `1px solid ${C.border}`, color: C.textMuted }}>
+          <div style={{ fontSize: 40, marginBottom: 10 }}>📄</div>
+          <div style={{ fontWeight: 600, marginBottom: 8 }}>Nenhum recurso ainda</div>
+          <button onClick={() => setView("home")} style={{ padding: "10px 22px", borderRadius: 10, border: "none", background: `linear-gradient(135deg,${C.green700},${C.green500})`, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Gerar recurso →</button>
+        </div>
+      ) : historico.map(h => (
+        <div key={h.id} style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 12, padding: "15px 18px", marginBottom: 10 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 8 }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>{h.dados?.descricao_infracao || "Infração"}</div>
+              <div style={{ fontSize: 12, color: C.textMuted }}>{fmtDate(h.data)} · Placa: {h.dados?.placa || "—"} · {h.dados?.valor_multa || "—"}</div>
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              {h.planoPago && <span style={{ fontSize: 11, background: C.green50, color: C.green700, border: `1px solid ${C.green100}`, borderRadius: 20, padding: "2px 10px", fontWeight: 600 }}>✓ {PLANOS_MAP[h.planoPago]?.titulo}</span>}
+              {h.planoPago ? (
+                <button onClick={() => setPdfModal({ recurso: h.recurso, dados: h.dados, historico_penalidade: h.historico_penalidade })}
+                  style={{ padding: "6px 12px", borderRadius: 7, border: `1px solid ${C.border}`, background: C.white, color: C.textMid, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>📄 Ver recurso</button>
+              ) : (
+                <button onClick={() => { setDadosMulta(h.dados); setRecurso(h.recurso); historicoIdRef.current = h.id; setStep(4); setView("home"); }}
+                  style={{ padding: "6px 12px", borderRadius: 7, border: "none", background: `linear-gradient(135deg,${C.green700},${C.green500})`, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Pagar e acessar →</button>
+              )}
+              {/* Minuta revisada pelo advogado */}
+              {h.minutaAdvogado && (
+                <a href={h.minutaAdvogado.url} download={h.minutaAdvogado.nome}
+                  style={{ padding: "6px 12px", borderRadius: 7, border: "none", background: `linear-gradient(135deg,${C.green800},${C.green700})`, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>
+                  ⚖️ Baixar minuta revisada
+                </a>
+              )}
+            </div>
+          </div>
+          {h.minutaAdvogado && (
+            <div style={{ background: C.green50, border: `1px solid ${C.green100}`, borderRadius: 7, padding: "8px 12px", marginBottom: 8, fontSize: 12, color: C.green700, display: "flex", alignItems: "center", gap: 6 }}>
+              ⚖️ <strong>Minuta revisada disponível!</strong> O advogado enviou o documento assinado em {fmtDate(h.minutaAdvogado.data)}.
+            </div>
+          )}
+          <div style={{ fontSize: 12, color: C.textMuted, background: C.offWhite, borderRadius: 7, padding: "7px 11px", lineHeight: 1.6, maxHeight: 50, overflow: "hidden" }}>{h.recurso?.slice(0, 200)}...</div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -1241,45 +1310,8 @@ function AppLogado({ user, setUser, view, setView }) {
 
       {/* Aba Histórico */}
       {view === "historico" && (
-        <div style={{ maxWidth: 800, margin: "0 auto", padding: "28px 20px", animation: "fadeUp 0.3s ease both" }}>
-          <div style={{ fontWeight: 800, fontSize: 20, marginBottom: 4 }}>Seus recursos</div>
-          <div style={{ color: C.textMuted, fontSize: 14, marginBottom: 20 }}>{historico.length} recurso{historico.length !== 1 ? "s" : ""}</div>
-          {historico.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "56px 20px", background: C.white, borderRadius: 14, border: `1px solid ${C.border}`, color: C.textMuted }}>
-              <div style={{ fontSize: 40, marginBottom: 10 }}>📄</div>
-              <div style={{ fontWeight: 600, marginBottom: 8 }}>Nenhum recurso ainda</div>
-              <button onClick={() => setView("home")} style={{ padding: "10px 22px", borderRadius: 10, border: "none", background: `linear-gradient(135deg,${C.green700},${C.green500})`, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Gerar recurso →</button>
-            </div>
-          ) : historico.map(h => (
-            <div key={h.id} style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 12, padding: "15px 18px", marginBottom: 10 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 8 }}>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>{h.dados?.descricao_infracao || "Infração"}</div>
-                  <div style={{ fontSize: 12, color: C.textMuted }}>{fmtDate(h.data)} · Placa: {h.dados?.placa || "—"} · {h.dados?.valor_multa || "—"}</div>
-                </div>
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                  {h.planoPago && <span style={{ fontSize: 11, background: C.green50, color: C.green700, border: `1px solid ${C.green100}`, borderRadius: 20, padding: "2px 10px", fontWeight: 600 }}>✓ {PLANOS_MAP[h.planoPago]?.titulo}</span>}
-                  {h.planoPago ? (
-                    <button onClick={() => setPdfModal({ recurso: h.recurso, dados: h.dados, historico_penalidade: h.historico_penalidade })} style={{ padding: "6px 12px", borderRadius: 7, border: `1px solid ${C.border}`, background: C.white, color: C.textMid, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>📄 Ver recurso</button>
-                  ) : (
-                    <button onClick={() => { setDadosMulta(h.dados); setRecurso(h.recurso); historicoIdRef.current = h.id; setStep(4); setView("home"); }}
-                      style={{ padding: "6px 12px", borderRadius: 7, border: "none", background: `linear-gradient(135deg,${C.green700},${C.green500})`, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Pagar e acessar →</button>
-                  )}
-                  {/* Minuta revisada pelo advogado */}
-                  {h.minutaAdvogado && (
-                    <a href={h.minutaAdvogado.url} download={h.minutaAdvogado.nome}
-                      style={{ padding: "6px 12px", borderRadius: 7, border: "none", background: `linear-gradient(135deg,${C.green800},${C.green700})`, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>
-                      ⚖️ Baixar minuta revisada
-                    </a>
-                  )}
-                </div>
-              </div>
-              <div style={{ fontSize: 12, color: C.textMuted, background: C.offWhite, borderRadius: 7, padding: "7px 11px", lineHeight: 1.6, maxHeight: 50, overflow: "hidden" }}>{h.recurso?.slice(0, 200)}...</div>
-            </div>
-          ))}
-        </div>
+        <HistoricoAtualizado user={user} setUser={setUser} setPdfModal={setPdfModal} setDadosMulta={setDadosMulta} setRecurso={setRecurso} historicoIdRef={historicoIdRef} setStep={setStep} setView={setView} />
       )}
-
       {/* Aba Home */}
       {view === "home" && (
         <div style={{ maxWidth: 1060, margin: "0 auto", padding: `24px ${isMobile ? 16 : 22}px 60px`, display: "flex", gap: 22, flexDirection: isMobile ? "column" : "row" }}>
@@ -1719,16 +1751,5 @@ export default function Root() {
               <>
                 <button onClick={() => openAuth("login")} style={{ padding: "7px 14px", borderRadius: 7, border: `1px solid ${C.border}`, background: C.white, color: C.textMid, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Entrar</button>
                 <button onClick={() => openAuth("signup")} style={{ padding: "7px 14px", borderRadius: 7, border: "none", background: `linear-gradient(135deg,${C.green700},${C.green500})`, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Criar conta</button>
-              </>
-            )}
-          </nav>
-        </header>
-      )}
-
-      {isAdv ? <PainelAdvogado onLogout={handleLogout} /> :
-        user ? <AppLogado user={user} setUser={setUserSync} view={view} setView={setView} /> :
-          <LandingPage onOpenAuth={openAuth} />}
-    </div>
-  );
-}
+         
 
