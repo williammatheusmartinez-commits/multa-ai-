@@ -11,7 +11,7 @@ export async function POST(request) {
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
-      return Response.json({ error: "Chave de API nao configurada no servidor." }, { status: 500 });
+      return Response.json({ error: "Chave de API nao configurada." }, { status: 500 });
     }
 
     const finalMediaType = fileType === "pdf"
@@ -22,59 +22,87 @@ export async function POST(request) {
       ? "\n\nHistorico relatado pelo cliente: " + historicoPenalidade
       : "";
 
-    const anthropicResponse = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 2000,
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: fileType === "pdf" ? "document" : "image",
-                source: { type: "base64", media_type: finalMediaType, data: fileB64 },
-              },
-              {
-                type: "text",
-                text: "Voce e um especialista em direito de transito brasileiro com vasta experiencia em recursos administrativos." + historicoTexto + "\n\nAnalise este auto de infracao e:\n1. Extraia todos os dados relevantes do documento\n2. Redija um recurso administrativo de 1a instancia (JARI) completo, formal e fundamentado\n\nO recurso deve:\n- Ser endereçado a Junta Administrativa de Recursos de Infracoes (JARI)\n- Apresentar qualificacao completa do recorrente (use dados do auto)\n- Arguir todos os vicios formais identificaveis\n- Fundamentar no CTB (arts. 280, 281, 282, 283) e Resolucoes CONTRAN pertinentes\n- Usar o historico relatado pelo cliente para fortalecer os argumentos quando relevante\n- Incluir pedido de cancelamento da autuacao e devolucao de pontos\n- Ter linguagem juridica formal mas clara\n- Ter ao menos 400 palavras\n\nResponda APENAS em JSON valido, sem markdown, sem texto fora do JSON:\n{\"dados\":{\"numero_auto\":\"...\",\"data\":\"...\",\"hora\":\"...\",\"local\":\"...\",\"codigo_infracao\":\"...\",\"descricao_infracao\":\"...\",\"artigo_ctb\":\"...\",\"placa\":\"...\",\"pontos\":\"...\",\"valor_multa\":\"...\"},\"recurso\":\"texto completo do recurso com quebras de linha \\n\"}",
-              },
-            ],
+    // Tenta modelos em ordem de preferencia
+    const modelos = [
+      "claude-opus-4-5",
+      "claude-sonnet-4-5",
+      "claude-haiku-4-5",
+      "claude-3-5-sonnet-20241022",
+      "claude-3-haiku-20240307"
+    ];
+
+    let ultimoErro = "";
+
+    for (const modelo of modelos) {
+      try {
+        const res = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
           },
-        ],
-      }),
-    });
+          body: JSON.stringify({
+            model: modelo,
+            max_tokens: 2000,
+            messages: [{
+              role: "user",
+              content: [
+                {
+                  type: fileType === "pdf" ? "document" : "image",
+                  source: { type: "base64", media_type: finalMediaType, data: fileB64 },
+                },
+                {
+                  type: "text",
+                  text: "Voce e especialista em direito de transito brasileiro." + historicoTexto + "\n\nAnalise este auto de infracao e redija um recurso administrativo de 1a instancia (JARI) completo, fundamentado no CTB (arts. 280, 281, 282, 283). Minimo 400 palavras. Use o historico do cliente para fortalecer a defesa quando relevante.\n\nResponda APENAS em JSON valido sem markdown:\n{\"dados\":{\"numero_auto\":\"...\",\"data\":\"...\",\"hora\":\"...\",\"local\":\"...\",\"codigo_infracao\":\"...\",\"descricao_infracao\":\"...\",\"artigo_ctb\":\"...\",\"placa\":\"...\",\"pontos\":\"...\",\"valor_multa\":\"...\"},\"recurso\":\"texto completo com \\n\"}"
+                }
+              ]
+            }]
+          })
+        });
 
-    if (!anthropicResponse.ok) {
-      const errText = await anthropicResponse.text();
-      console.error("Anthropic error:", errText);
-      return Response.json({ error: "Erro ao processar com a IA. Tente novamente." }, { status: 502 });
+        if (!res.ok) {
+          const errText = await res.text();
+          ultimoErro = `${modelo}: ${res.status} - ${errText.slice(0, 200)}`;
+          console.error("Erro modelo", modelo, res.status, errText.slice(0, 200));
+          continue; // tenta próximo modelo
+        }
+
+        const data = await res.json();
+        const rawText = data.content?.find(b => b.type === "text")?.text || "";
+        const clean = rawText.replace(/```json|```/g, "").trim();
+
+        let parsed;
+        try {
+          parsed = JSON.parse(clean);
+        } catch {
+          console.error("JSON parse error com modelo", modelo, rawText.slice(0, 300));
+          continue;
+        }
+
+        if (!parsed.dados || !parsed.recurso) {
+          console.error("Resposta incompleta do modelo", modelo);
+          continue;
+        }
+
+        // Sucesso!
+        return Response.json({ ...parsed, _modelo: modelo });
+
+      } catch (err) {
+        ultimoErro = err.message;
+        console.error("Excecao modelo", modelo, err.message);
+        continue;
+      }
     }
 
-    const data = await anthropicResponse.json();
-    const rawText = data.content?.find((b) => b.type === "text")?.text || "";
-    const clean = rawText.replace(/```json|```/g, "").trim();
+    // Todos os modelos falharam
+    return Response.json({
+      error: "Nao foi possivel gerar o recurso. Verifique sua chave de API e creditos na Anthropic. Detalhe: " + ultimoErro
+    }, { status: 502 });
 
-    let parsed;
-    try {
-      parsed = JSON.parse(clean);
-    } catch {
-      console.error("JSON parse error. Raw:", rawText.slice(0, 500));
-      return Response.json({ error: "A IA nao retornou formato valido. Tente novamente." }, { status: 500 });
-    }
-
-    if (!parsed.dados || !parsed.recurso) {
-      return Response.json({ error: "Resposta incompleta da IA. Tente novamente." }, { status: 500 });
-    }
-
-    return Response.json(parsed);
   } catch (err) {
     console.error("Erro interno:", err);
-    return Response.json({ error: "Erro interno. Tente novamente." }, { status: 500 });
+    return Response.json({ error: "Erro interno: " + err.message }, { status: 500 });
   }
 }
+
