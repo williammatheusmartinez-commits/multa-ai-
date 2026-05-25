@@ -1751,5 +1751,15 @@ export default function Root() {
               <>
                 <button onClick={() => openAuth("login")} style={{ padding: "7px 14px", borderRadius: 7, border: `1px solid ${C.border}`, background: C.white, color: C.textMid, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Entrar</button>
                 <button onClick={() => openAuth("signup")} style={{ padding: "7px 14px", borderRadius: 7, border: "none", background: `linear-gradient(135deg,${C.green700},${C.green500})`, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Criar conta</button>
-         
+              </>
+            )}
+          </nav>
+        </header>
+      )}
 
+      {isAdv ? <PainelAdvogado onLogout={handleLogout} /> :
+        user ? <AppLogado user={user} setUser={setUserSync} view={view} setView={setView} /> :
+          <LandingPage onOpenAuth={openAuth} />}
+    </div>
+  );
+}
