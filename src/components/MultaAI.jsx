@@ -500,6 +500,7 @@ function PerfilModal({ user, setUser, onClose }) {
           <div style={{ fontSize: 11, fontWeight: 700, color: C.green700, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>Dados Pessoais</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
             <div style={{ gridColumn: "1/-1" }}>{inp("Nome completo *", "nome", "João da Silva", true)}</div>
+            <div style={{ gridColumn: "1/-1" }}>{inp("E-mail", "email", "joao@email.com", true)}</div>
             {inp("CPF", "cpf", "000.000.000-00")}
             {inp("RG", "rg", "00.000.000-0")}
             {inp("Data de nascimento", "dataNasc", "DD/MM/AAAA")}
@@ -784,14 +785,14 @@ function AbaDocumentos({ setView, onUploadDocs, uploadedDocs }) {
     {
       titulo: "Documentos do Condutor / Proprietário", icon: "👤", cor: C.green700, docs: [
         { id: "cnh", label: "CNH — frente e verso", desc: "Dentro da validade.", obrig: true },
-        { id: "rg", label: "RG ou documento de identidade com foto", desc: "CPF e RG, ou CNH como documento único.", obrig: true },
-        { id: "cpf", label: "CPF", desc: "Caso não esteja no documento de identidade.", obrig: true },
-        { id: "endereco", label: "Comprovante de endereço", desc: "Últimos 90 dias — conta de luz, água ou banco.", obrig: true },
+        { id: "rg", label: "RG ou documento de identidade com foto", desc: "CPF e RG, ou CNH como documento único.", obrig: false, recom: true },
+        { id: "cpf", label: "CPF", desc: "Caso não esteja no documento de identidade.", obrig: false, recom: true },
+        { id: "endereco", label: "Comprovante de endereço", desc: "Últimos 90 dias — conta de luz, água ou banco.", obrig: false, recom: true },
       ]
     },
     {
       titulo: "Documentos do Veículo", icon: "🚗", cor: C.green600, docs: [
-        { id: "crlv", label: "CRLV — Certificado de Registro e Licenciamento", desc: "Documento atual frente e verso.", obrig: true },
+        { id: "crlv", label: "CRLV — Certificado de Registro e Licenciamento", desc: "Documento atual frente e verso.", obrig: false, recom: true },
         { id: "seguro", label: "Apólice de seguro (se houver)", desc: "Pode auxiliar na comprovação.", obrig: false },
       ]
     },
@@ -861,8 +862,11 @@ function AbaDocumentos({ setView, onUploadDocs, uploadedDocs }) {
               <div style={{ flex: 1 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 3, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 13, fontWeight: 600, color: checados[doc.id] ? C.green700 : C.text, textDecoration: checados[doc.id] ? "line-through" : "none" }}>{doc.label}</span>
-                  {doc.obrig ? <span style={{ fontSize: 10, fontWeight: 700, background: "#fef2f2", color: "#dc2626", border: "1px solid #fca5a5", borderRadius: 20, padding: "1px 8px" }}>OBRIGATÓRIO</span>
-                    : <span style={{ fontSize: 10, fontWeight: 700, background: C.green50, color: C.green700, border: `1px solid ${C.green100}`, borderRadius: 20, padding: "1px 8px" }}>OPCIONAL</span>}
+                  {doc.obrig
+                    ? <span style={{ fontSize: 10, fontWeight: 700, background: "#fef2f2", color: "#dc2626", border: "1px solid #fca5a5", borderRadius: 20, padding: "1px 8px" }}>OBRIGATÓRIO</span>
+                    : doc.recom
+                      ? <span style={{ fontSize: 10, fontWeight: 700, background: "#fffbeb", color: "#b45309", border: "1px solid #fcd34d", borderRadius: 20, padding: "1px 8px" }}>ALTAMENTE RECOMENDADO</span>
+                      : <span style={{ fontSize: 10, fontWeight: 700, background: C.green50, color: C.green700, border: `1px solid ${C.green100}`, borderRadius: 20, padding: "1px 8px" }}>OPCIONAL</span>}
                 </div>
                 <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.5 }}>{doc.desc}</div>
               </div>
@@ -878,6 +882,13 @@ function AbaDocumentos({ setView, onUploadDocs, uploadedDocs }) {
         </div>
         <button onClick={() => setView("planos")} style={{ padding: "11px 22px", borderRadius: 10, border: "none", background: C.green400, color: C.green900, fontSize: 13, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>Ver planos →</button>
       </div>
+
+      {/* Botão próxima etapa */}
+      <button onClick={() => setView("home")}
+        style={{ width: "100%", padding: "16px", borderRadius: 14, border: "none", background: `linear-gradient(135deg,${C.green900},${C.green700})`, color: "#fff", fontSize: 16, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", marginTop: 8, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: `0 6px 24px ${C.glowStrong}` }}>
+        <span>📄</span>
+        <span>Próxima etapa: Gerar Recurso →</span>
+      </button>
     </div>
   );
 }
