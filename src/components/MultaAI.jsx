@@ -699,8 +699,19 @@ function AuthDrawer({ onClose, onLogin, initialMode = "login" }) {
   );
 }
 
+// ── Botão Voltar ──────────────────────────────────────────────
+function BotaoVoltar({ onClick, label = "← Voltar" }) {
+  return (
+    <button onClick={onClick} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.white, color: C.textMuted, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginBottom: 16, transition: "all 0.15s" }}
+      onMouseEnter={e => { e.currentTarget.style.background = C.offWhite; e.currentTarget.style.color = C.text; }}
+      onMouseLeave={e => { e.currentTarget.style.background = C.white; e.currentTarget.style.color = C.textMuted; }}>
+      {label}
+    </button>
+  );
+}
+
 // ── Aba Protocolo (pós-pagamento) ─────────────────────────────
-function AbaProtocolo({ dadosMulta }) {
+function AbaProtocolo({ dadosMulta, setView }) {
   const isMobile = useIsMobile();
   const PASSOS = [
     {
@@ -736,6 +747,7 @@ function AbaProtocolo({ dadosMulta }) {
   ];
   return (
     <div style={{ maxWidth: 820, margin: "0 auto", padding: isMobile ? "20px 16px" : "28px 24px", animation: "fadeUp 0.3s ease both" }}>
+      <BotaoVoltar onClick={() => setView("home")} label="← Voltar ao recurso" />
       <div style={{ background: `linear-gradient(135deg,${C.green900},${C.green800})`, borderRadius: 16, padding: isMobile ? "20px" : "28px 32px", marginBottom: 24, position: "relative", overflow: "hidden" }}>
         {[300, 200, 120].map((r, i) => <div key={i} style={{ position: "absolute", right: -60 + i * 20, top: "50%", transform: "translateY(-50%)", width: r, height: r, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.05)", pointerEvents: "none" }} />)}
         <div style={{ position: "relative", zIndex: 1 }}>
@@ -811,6 +823,7 @@ function AbaDocumentos({ setView, onUploadDocs, uploadedDocs }) {
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: isMobile ? "20px 16px" : "28px 24px", animation: "fadeUp 0.3s ease both" }}>
+      <BotaoVoltar onClick={() => setView("home")} label="← Voltar ao recurso" />
 
       {/* Upload de documentos vinculado ao recurso */}
       <div style={{ background: C.white, border: `2px solid ${C.green400}`, borderRadius: 14, padding: "18px 20px", marginBottom: 20 }}>
@@ -875,14 +888,6 @@ function AbaDocumentos({ setView, onUploadDocs, uploadedDocs }) {
         </div>
       ))}
 
-      <div style={{ background: `linear-gradient(135deg,${C.green700},${C.green600})`, borderRadius: 14, padding: "18px 22px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <div style={{ color: "#fff", fontWeight: 700, fontSize: 14, marginBottom: 4 }}>Quer suporte jurídico?</div>
-          <div style={{ color: "rgba(255,255,255,0.65)", fontSize: 13 }}>Revisão Jurídica com assinatura OAB por R$ 199,00.</div>
-        </div>
-        <button onClick={() => setView("planos")} style={{ padding: "11px 22px", borderRadius: 10, border: "none", background: C.green400, color: C.green900, fontSize: 13, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>Ver planos →</button>
-      </div>
-
       {/* Botão próxima etapa */}
       <button onClick={() => setView("home")}
         style={{ width: "100%", padding: "16px", borderRadius: 14, border: "none", background: `linear-gradient(135deg,${C.green900},${C.green700})`, color: "#fff", fontSize: 16, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", marginTop: 8, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: `0 6px 24px ${C.glowStrong}` }}>
@@ -894,7 +899,7 @@ function AbaDocumentos({ setView, onUploadDocs, uploadedDocs }) {
 }
 
 // ── Aba Planos ────────────────────────────────────────────────
-function AbaPlanos({ user, dadosMulta, historicoPenalidade, onPlanoPago, planoPago }) {
+function AbaPlanos({ user, dadosMulta, historicoPenalidade, onPlanoPago, planoPago, setView }) {
   const [showPagamento, setShowPagamento] = useState(null);
   const isMobile = useIsMobile();
 
@@ -905,6 +910,7 @@ function AbaPlanos({ user, dadosMulta, historicoPenalidade, onPlanoPago, planoPa
 
   return (
     <div style={{ maxWidth: 800, margin: "0 auto", padding: isMobile ? "20px 16px" : "28px 24px" }}>
+      <BotaoVoltar onClick={() => setView("home")} label="← Voltar ao recurso" />
       {showPagamento && (
         <PagamentoModal plano={showPagamento} onClose={() => setShowPagamento(null)} onSuccess={aoConfirmar}
           dadosCliente={{ nome: user?.nome, email: user?.email, telefone: user?.perfil?.telefone }}
@@ -1140,6 +1146,7 @@ function HistoricoAtualizado({ user, setUser, setPdfModal, setDadosMulta, setRec
 
   return (
     <div style={{ maxWidth: 800, margin: "0 auto", padding: "28px 20px", animation: "fadeUp 0.3s ease both" }}>
+      <BotaoVoltar onClick={() => setView("home")} label="← Voltar ao recurso" />
       <div style={{ fontWeight: 800, fontSize: 20, marginBottom: 4 }}>Seus recursos</div>
       <div style={{ color: C.textMuted, fontSize: 14, marginBottom: 20 }}>{historico.length} recurso{historico.length !== 1 ? "s" : ""}</div>
       {historico.length === 0 ? (
@@ -1299,9 +1306,9 @@ function AppLogado({ user, setUser, view, setView }) {
         {[
           { id: "documentos", label: "📋 Documentos" },
           { id: "home", label: "📄 Gerar Recurso" },
-          { id: "planos", label: "⚖️ Planos" },
           ...(planoPagoAtual ? [{ id: "protocolo", label: "🗂️ Protocolar" }] : []),
           { id: "historico", label: "🕓 Histórico" },
+          { id: "planos", label: "⚖️ Planos" },
         ].map(({ id, label }) => (
           <button key={id} onClick={() => setView(id)} style={{ padding: "14px 18px", border: "none", background: "transparent", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: view === id ? 700 : 400, color: view === id ? C.green700 : C.textMuted, whiteSpace: "nowrap", borderBottom: `2px solid ${view === id ? C.green500 : "transparent"}`, transition: "all 0.2s" }}>{label}</button>
         ))}
@@ -1326,13 +1333,13 @@ function AppLogado({ user, setUser, view, setView }) {
       )}
 
       {/* Aba Planos */}
-      {view === "planos" && <AbaPlanos user={user} dadosMulta={dadosMulta} historicoPenalidade={historicoPenalidade} onPlanoPago={aoPlanoContratado} planoPago={planoPagoAtual} />}
+      {view === "planos" && <AbaPlanos user={user} dadosMulta={dadosMulta} historicoPenalidade={historicoPenalidade} onPlanoPago={aoPlanoContratado} planoPago={planoPagoAtual} setView={setView} />}
 
       {/* Aba Documentos */}
       {view === "documentos" && <AbaDocumentos setView={setView} onUploadDocs={f => setDocFiles(prev => [...prev, ...f])} uploadedDocs={docFiles} />}
 
       {/* Aba Protocolo */}
-      {view === "protocolo" && <AbaProtocolo dadosMulta={dadosMulta} />}
+      {view === "protocolo" && <AbaProtocolo dadosMulta={dadosMulta} setView={setView} />}
 
       {/* Aba Histórico */}
       {view === "historico" && (
